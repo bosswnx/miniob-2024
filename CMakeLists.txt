@@ -173,6 +173,8 @@ ADD_SUBDIRECTORY(src/observer)
 ADD_SUBDIRECTORY(test/perf)
 ADD_SUBDIRECTORY(tools)
 
+include(hooks/install_hooks.cmake)
+
 IF (WITH_BENCHMARK)
     ADD_SUBDIRECTORY(benchmark)
 ENDIF(WITH_BENCHMARK)
