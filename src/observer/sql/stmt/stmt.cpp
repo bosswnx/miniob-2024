@@ -44,6 +44,9 @@ bool stmt_type_ddl(StmtType type)
     }
   }
 }
+/**
+ * 根据抽象语法树的节点类型, 创建对应的语句对象
+ */
 RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
 {
   stmt = nullptr;

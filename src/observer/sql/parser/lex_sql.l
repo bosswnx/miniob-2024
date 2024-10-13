@@ -59,6 +59,7 @@ extern double atof();
 %option case-insensitive
 %option bison-locations
 
+/* 左侧是宏定义，右侧是正则表达式，用于下面规则的匹配 */
 WHITE_SAPCE      [\ \t\b\f]
 DIGIT            [0-9]+
 
@@ -70,6 +71,7 @@ QUOTE            [\'\"]
 /* 规则匹配的优先级：*/
 /* 1. 匹配的规则长的优先 */
 /* 2. 写在最前面的优先 */
+/* 左边是上面定义的宏或者是正则表达式，右边是返回的token */
 
 /* yylval 就可以认为是 yacc 中 %union 定义的结构体(union 结构) */
 %%

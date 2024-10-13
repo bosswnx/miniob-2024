@@ -401,6 +401,7 @@ RC check_aggregate_expression(AggregateExpr &expression)
   return rc;
 }
 
+// 绑定聚合表达式
 RC ExpressionBinder::bind_aggregate_expression(
     unique_ptr<Expression> &expr, vector<unique_ptr<Expression>> &bound_expressions)
 {
@@ -420,6 +421,8 @@ RC ExpressionBinder::bind_aggregate_expression(
   unique_ptr<Expression>        &child_expr = unbound_aggregate_expr->child();
   vector<unique_ptr<Expression>> child_bound_expressions;
 
+  // 下面都是对子表达式的特殊处理
+  // 如果聚合表达式的子表达式是 * 且聚合类型是 COUNT, 则将子表达式替换为常量 1
   if (child_expr->type() == ExprType::STAR && aggregate_type == AggregateExpr::Type::COUNT) {
     ValueExpr *value_expr = new ValueExpr(Value(1));
     child_expr.reset(value_expr);
@@ -441,6 +444,7 @@ RC ExpressionBinder::bind_aggregate_expression(
 
   auto aggregate_expr = make_unique<AggregateExpr>(aggregate_type, std::move(child_expr));
   aggregate_expr->set_name(unbound_aggregate_expr->name());
+  // 检查聚合表达式是否合法
   rc = check_aggregate_expression(*aggregate_expr);
   if (OB_FAIL(rc)) {
     return rc;

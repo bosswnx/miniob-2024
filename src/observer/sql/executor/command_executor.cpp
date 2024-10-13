@@ -26,6 +26,9 @@ See the Mulan PSL v2 for more details. */
 #include "sql/executor/trx_end_executor.h"
 #include "sql/stmt/stmt.h"
 
+/**
+ * 执行阶段, 执行sql语句
+ */
 RC CommandExecutor::execute(SQLStageEvent *sql_event)
 {
   Stmt *stmt = sql_event->stmt();

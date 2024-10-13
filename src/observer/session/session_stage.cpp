@@ -85,12 +85,14 @@ RC SessionStage::handle_sql(SQLStageEvent *sql_event)
     return rc;
   }
 
+  // 解析阶段, 将sql语句解析成抽象语法树
   rc = parse_stage_.handle_request(sql_event);
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
     return rc;
   }
 
+  // 生成执行计划
   rc = resolve_stage_.handle_request(sql_event);
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do resolve. rc=%s", strrc(rc));
@@ -103,6 +105,7 @@ RC SessionStage::handle_sql(SQLStageEvent *sql_event)
     return rc;
   }
 
+  // 
   rc = execute_stage_.handle_request(sql_event);
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do execute. rc=%s", strrc(rc));
