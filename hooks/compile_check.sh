@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
-cd build || (echo "please build binary in 'build' directory" && exit 1)
-
-cmake --build .
+make -j$(nproc)
 if [ $? -ne 0 ]; then
-    echo "compile failed, commit refused" >&2
+    echo "编译失败，提交被拒绝" >&2
     exit 1
 fi
