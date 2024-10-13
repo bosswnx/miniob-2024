@@ -34,6 +34,7 @@ public:
   friend class FloatType;
   friend class BooleanType;
   friend class CharType;
+  friend class DateType;
 
   Value() = default;
 
@@ -45,6 +46,8 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+
+  static Value *from_date(const char *s);
 
   Value(const Value &other);
   Value(Value &&other);
@@ -113,6 +116,8 @@ private:
   void set_int(int val);
   void set_float(float val);
   void set_string(const char *s, int len = 0);
+  void set_date(const char *s);  // 从 "YYYY-MM-DD" 格式的日期字符串创建 Value
+  void set_date(int val);        // 从 YYYYMMDD 格式的整数创建 Value
   void set_string_from_other(const Value &other);
 
 private:

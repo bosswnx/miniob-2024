@@ -68,6 +68,7 @@ void SessionStage::handle_request2(SessionEvent *event)
 }
 
 /**
+ * START HERE
  * 处理一个SQL语句经历这几个阶段。
  * 虽然看起来流程比较多，但是对于大多数SQL来说，更多的可以关注parse和executor阶段。
  * 通常只有select、delete等带有查询条件的语句才需要进入optimize。
@@ -92,20 +93,21 @@ RC SessionStage::handle_sql(SQLStageEvent *sql_event)
     return rc;
   }
 
-  // 生成执行计划
+  // 生成执行计划 stmt
   rc = resolve_stage_.handle_request(sql_event);
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do resolve. rc=%s", strrc(rc));
     return rc;
   }
 
+  // 优化阶段, 对生成的执行计划 stmt 进行优化
   rc = optimize_stage_.handle_request(sql_event);
   if (rc != RC::UNIMPLEMENTED && rc != RC::SUCCESS) {
     LOG_TRACE("failed to do optimize. rc=%s", strrc(rc));
     return rc;
   }
 
-  // 
+  // 将 stmt 转换为对应的算子
   rc = execute_stage_.handle_request(sql_event);
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do execute. rc=%s", strrc(rc));

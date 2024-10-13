@@ -28,6 +28,14 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+// 从 YYYY-MM-DD 格式的日期字符串创建 Value
+Value *Value::from_date(const char *s)
+{
+  Value *val = new Value();
+  val->set_date(s);
+  return val;
+}
+
 Value::Value(const Value &other)
 {
   this->attr_type_ = other.attr_type_;
@@ -175,6 +183,24 @@ void Value::set_string(const char *s, int len /*= 0*/)
   }
 }
 
+void Value::set_date(const char *s)
+{
+  reset();
+  attr_type_        = AttrType::DATES;
+  string date       = s;
+  date              = date.substr(0, 4) + date.substr(5, 2) + date.substr(8, 2);
+  value_.int_value_ = atoi(date.c_str());
+  length_           = sizeof(value_.int_value_);
+}
+
+void Value::set_date(int val)
+{
+  reset();
+  attr_type_        = AttrType::DATES;
+  value_.int_value_ = val;
+  length_           = sizeof(val);
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
@@ -189,6 +215,9 @@ void Value::set_value(const Value &value)
     } break;
     case AttrType::BOOLEANS: {
       set_boolean(value.get_boolean());
+    } break;
+    case AttrType::DATES: {
+      set_date(value.get_int());
     } break;
     default: {
       ASSERT(false, "got an invalid value type");
