@@ -13,6 +13,8 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/executor/command_executor.h"
+
+#include "drop_table_executor.h"
 #include "common/log/log.h"
 #include "event/sql_event.h"
 #include "sql/executor/create_index_executor.h"
@@ -83,6 +85,11 @@ RC CommandExecutor::execute(SQLStageEvent *sql_event)
 
     case StmtType::EXIT: {
       rc = RC::SUCCESS;
+    } break;
+
+    case StmtType::DROP_TABLE: {
+      DropTableExecutor executor;
+      executor.execute(sql_event);
     } break;
 
     default: {
