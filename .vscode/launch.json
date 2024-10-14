@@ -18,9 +18,9 @@
             }
         },
         {
-            "type": "lldb",
+            "type": "cppdbg",
             "request": "launch",
-            "name": "LLDB",
+            "name": "GDB",
             "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
             "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-P", "cli"],
             "cwd": "${workspaceFolder}/${defaultBuildTask}/"
