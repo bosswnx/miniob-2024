@@ -33,3 +33,26 @@
 ## 一些资料
 
 - clang 出现 `'iostream' file not found`: https://blog.csdn.net/qq_50901812/article/details/131408137
+
+# 关于 VSCode
+前置要求：开发机器上安装 clangd，clang-tidy，clang-format
+插件推荐：
+1. clangd 用于替代 cpptools，获得更好的代码补全和跳转
+2. clang-format 用于调用 clang-format 完成格式化
+3. git-commit-plugin 用于生成符合规范的 git commit message
+   
+需要设置：
+1. `C_Cpp.intelliSenseEngine` 设为 Disable，禁用 intelliSence，因为会和 clangd 冲突
+2. `C_Cpp.codeAnalysis.clangTidy.enabled` 设为 True，使用 clang-tidy 静态分析器
+
+## 关于 clang-tidy
+开启了三个checker
+1. `clang-analyzer-*` clang静态分析检查器
+2. `google-*` 检查代码是否符合 google 的 C++代码规范
+3. `modernize-*` 检查代码是否符合现代 C++ 的代码规范
+   
+如果某个规则出现过于频繁，可以在`.clang-tidy`中排除，语法为`-rule-name`  
+也可以在希望屏蔽 clang-tidy 警告的行加上`//NOLINT` 注释
+
+参考：  
+- [Clang-Tidy — Extra Clang Tools 20.0.0git documentation](https://clang.llvm.org/extra/clang-tidy/)

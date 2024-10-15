@@ -1,0 +1,1 @@
+Checks: '-*,clang-analyzer-*,google-*,modernize-*,-modernize-use-trailing-return-type' 
