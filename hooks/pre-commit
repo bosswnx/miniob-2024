@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-./hooks/code_format.sh && ./hooks/compile_check.sh
+./hooks/compile_check.sh

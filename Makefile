@@ -15,6 +15,6 @@ clean:
 	@bash build.sh clean
 
 format:
-	@bash hooks/code_format.sh
+	git clang-format --force --extensions cpp,h || true
 
 .PHONY: build env run help clean gen_parser format
