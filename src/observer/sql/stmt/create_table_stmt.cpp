@@ -13,7 +13,6 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "common/log/log.h"
-#include "common/types.h"
 #include "sql/stmt/create_table_stmt.h"
 #include "event/sql_debug.h"
 

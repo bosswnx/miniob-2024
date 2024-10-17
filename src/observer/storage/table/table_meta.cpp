@@ -11,6 +11,7 @@ See the Mulan PSL v2 for more details. */
 //
 // Created by Meiyi & Wangyunlai on 2021/5/12.
 //
+#include <cmath>
 
 #include "common/lang/string.h"
 #include "common/lang/algorithm.h"
@@ -75,12 +76,18 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
   } else {
     fields_.resize(attributes.size());
   }
-
+  null_bitmap_start_ = field_offset;
+  field_offset += std::ceil(attributes.size() / 8.0);
   for (size_t i = 0; i < attributes.size(); i++) {
     const AttrInfoSqlNode &attr_info = attributes[i];
     // `i` is the col_id of fields[i]
-    rc = fields_[i + trx_field_num].init(
-      attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length, true /*visible*/, i);
+    rc = fields_[i + trx_field_num].init(attr_info.name.c_str(),
+        attr_info.type,
+        field_offset,
+        attr_info.length,
+        true /*visible*/,
+        i,
+        attr_info.nullable);
     if (OB_FAIL(rc)) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;
@@ -88,7 +95,6 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
 
     field_offset += attr_info.length;
   }
-
   record_size_ = field_offset;
 
   table_id_ = table_id;
@@ -139,6 +145,8 @@ const FieldMeta *TableMeta::find_field_by_offset(int offset) const
 int TableMeta::field_num() const { return fields_.size(); }
 
 int TableMeta::sys_field_num() const { return static_cast<int>(trx_fields_.size()); }
+
+int TableMeta::null_bitmap_start() const { return null_bitmap_start_; }
 
 const IndexMeta *TableMeta::index(const char *name) const
 {
@@ -267,11 +275,14 @@ int TableMeta::deserialize(std::istream &is)
   fields_.swap(fields);
   record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
 
+  null_bitmap_start_ = 0;
   for (const FieldMeta &field_meta : fields_) {
     if (!field_meta.visible()) {
       trx_fields_.push_back(field_meta); // 字段加上trx标识更好
+      null_bitmap_start_ += field_meta.len();
     }
   }
+  record_size_ += std::ceil((field_num - trx_fields_.size()) / 8.0);
 
   const Json::Value &indexes_value = table_value[FIELD_INDEXES];
   if (!indexes_value.empty()) {

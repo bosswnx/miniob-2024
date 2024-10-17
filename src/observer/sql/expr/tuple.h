@@ -23,8 +23,12 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple_cell.h"
 #include "sql/parser/parse.h"
 #include "common/value.h"
+#include "common/lang/bitmap.h"
 #include "storage/record/record.h"
 
+#include <storage/trx/mvcc_trx.h>
+
+using Bitmap = common::Bitmap;
 class Table;
 
 /**
@@ -171,7 +175,11 @@ public:
     speces_.clear();
   }
 
-  void set_record(Record *record) { this->record_ = record; }
+  void set_record(Record *record)
+  {
+    this->record_ = record;
+    bitmap        = std::make_unique<Bitmap>(record->data() + null_bitmap_start, speces_.size());
+  }
 
   void set_schema(const Table *table, const std::vector<FieldMeta> *fields)
   {
@@ -185,6 +193,10 @@ public:
     this->speces_.reserve(fields->size());
     for (const FieldMeta &field : *fields) {
       speces_.push_back(new FieldExpr(table, &field));
+    }
+    null_bitmap_start = 0;
+    for (const auto &trxField : table->table_meta().trx_fields()) {
+      null_bitmap_start += trxField.len();
     }
   }
 
@@ -201,6 +213,7 @@ public:
     const FieldMeta *field_meta = field_expr->field().meta();
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+    cell.set_is_null(bitmap->get_bit(index));
     return RC::SUCCESS;
   }
 
@@ -249,6 +262,8 @@ private:
   Record                  *record_ = nullptr;
   const Table             *table_  = nullptr;
   std::vector<FieldExpr *> speces_;
+  std::unique_ptr<Bitmap>  bitmap            = nullptr;
+  int32_t                  null_bitmap_start = 0;
 };
 
 /**

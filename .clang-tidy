@@ -1,1 +1,1 @@
-Checks: '-*,clang-analyzer-*,google-*,modernize-*,-modernize-use-trailing-return-type' 
+Checks: '-*,clang-analyzer-*,google-*,modernize-*,-modernize-use-trailing-return-type,-google-build-using-namespace' 

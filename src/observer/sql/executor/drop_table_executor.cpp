@@ -11,7 +11,7 @@ RC DropTableExecutor::execute(SQLStageEvent *sql_event) {
     Stmt* t = sql_event->stmt();
     // DropTableStmt* stmt = (DropTableStmt *)t;
     DropTableStmt* stmt = dynamic_cast<DropTableStmt*>(t);
-    assert(stmt != nullptr);
+    ASSERT(stmt != nullptr, "DropTableStmt is nullptr");
     db->drop_table(stmt->table_name().c_str());
     return RC::SUCCESS;
 }

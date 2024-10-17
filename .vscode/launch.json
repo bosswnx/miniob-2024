@@ -23,7 +23,16 @@
             "name": "GDB",
             "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
             "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-P", "cli"],
-            "cwd": "${workspaceFolder}/${defaultBuildTask}/"
+            "cwd": "${workspaceFolder}/${defaultBuildTask}/",
+            "internalConsoleOptions": "neverOpen",
+            "preLaunchTask": "${defaultBuildTask}",
+            "linux": {
+                "MIMode": "gdb",
+                "setupCommands": [
+                    { "text": "-enable-pretty-printing", "description": "enable pretty printing", "ignoreFailures": true },
+                    { "text": "handle SIGPIPE nostop noprint pass", "description": "ignore SIGPIPE", "ignoreFailures": true }  
+                ]
+            },
         }
     ]
 }

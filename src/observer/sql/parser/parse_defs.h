@@ -106,7 +106,7 @@ struct CalcSqlNode
 /**
  * @brief 描述一个insert语句
  * @ingroup SQLParser
- * @details 于Selects类似，也做了很多简化
+ * @details 与Selects类似，也做了很多简化
  */
 struct InsertSqlNode
 {
@@ -146,6 +146,7 @@ struct AttrInfoSqlNode
   AttrType    type;    ///< Type of attribute
   std::string name;    ///< Attribute name
   size_t      length;  ///< Length of attribute
+  bool        nullable;
 };
 
 /**

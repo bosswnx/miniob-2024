@@ -56,6 +56,7 @@ public:
 
   int field_num() const;  // sys field included
   int sys_field_num() const;
+  int null_bitmap_start() const;
 
   const IndexMeta *index(const char *name) const;
   const IndexMeta *find_index_by_field(const char *field) const;
@@ -75,9 +76,9 @@ protected:
   int32_t                table_id_ = -1;
   std::string            name_;
   std::vector<FieldMeta> trx_fields_;
-  std::vector<FieldMeta> fields_;  // 包含sys_fields
+  std::vector<FieldMeta> fields_;  // 包含sys_fields, 内容 [sys_fields1, sys_fields2, common_field1, common_field2]
   std::vector<IndexMeta> indexes_;
   StorageFormat          storage_format_;
-
-  int record_size_ = 0;
+  int                    null_bitmap_start_;
+  int                    record_size_ = 0;
 };

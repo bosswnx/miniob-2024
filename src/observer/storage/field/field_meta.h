@@ -30,10 +30,12 @@ class FieldMeta
 {
 public:
   FieldMeta();
-  FieldMeta(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id);
+  FieldMeta(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id,
+      bool nullable = false);
   ~FieldMeta() = default;
 
-  RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id);
+  RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id,
+      bool nullable = false);
 
 public:
   const char *name() const;
@@ -42,6 +44,7 @@ public:
   int         len() const;
   bool        visible() const;
   int         field_id() const;
+  bool        nullable() const;
 
 public:
   void desc(ostream &os) const;
@@ -56,5 +59,6 @@ protected:
   int      attr_offset_;
   int      attr_len_;
   bool     visible_;
-  int      field_id_;
+  int      field_id_;  // 从零递增的 id
+  bool     nullable_;
 };

@@ -8,7 +8,7 @@ EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
-#include <string.h>
+#include <cstring>
 #include <sstream>
 #include <filesystem>
 #include <utility>
@@ -30,7 +30,6 @@ See the Mulan PSL v2 for more details. */
 #include "storage/clog/integrated_log_replayer.h"
 #include "gtest/gtest.h"
 
-using namespace std;
 using namespace common;
 
 class PaxRecordFileScannerWithParam : public testing::TestWithParam<int>
