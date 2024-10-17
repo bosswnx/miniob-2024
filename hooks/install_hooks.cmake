@@ -3,7 +3,7 @@ execute_process(
         RESULT_VARIABLE clang_format_exitcode
 )
 if (NOT clang_format_exitcode EQUAL 0)
-    message(FATAL_ERROR "clang-format is not in your PATH")
+    message(WARNING "clang-format is not in your PATH")
 endif ()
 
 file(COPY ${CMAKE_SOURCE_DIR}/hooks/pre-commit DESTINATION ${CMAKE_SOURCE_DIR}/.git/hooks/)
