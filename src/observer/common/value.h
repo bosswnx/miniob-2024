@@ -108,8 +108,8 @@ public:
     // NULL 可以转型到任意类型
     // 场景 1：构造出的 NULL 是未定义类型，需要转型到正确类型
     if (value.is_null()) {
-      result.set_is_null(true);
       result.set_type(to_type);
+      result.set_is_null(true);
       return RC::SUCCESS;
     }
     return DataType::type_instance(value.attr_type())->cast_to(value, to_type, result);

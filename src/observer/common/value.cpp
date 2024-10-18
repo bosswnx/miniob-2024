@@ -248,7 +248,43 @@ void Value::set_string_from_other(const Value &other)
   }
 }
 
-void Value::set_is_null(bool _is_null) { is_null_ = _is_null; }
+void Value::set_is_null(bool _is_null)
+{
+  is_null_ = _is_null;
+  if (!is_null_) {
+    return;
+  }
+  // 为各类型的 null 值准备数据，复制 value 的数据时可以不用考虑 null 值的存在
+  switch (attr_type_) {
+    case AttrType::BOOLEANS: {
+      value_.bool_value_ = false;
+      length_            = sizeof(bool);
+    } break;
+    case AttrType::CHARS: {
+      if (own_data_ && value_.pointer_value_ != nullptr) {
+        break;
+      }
+      value_.pointer_value_    = new char[1];
+      value_.pointer_value_[0] = '\0';
+      length_                  = 0;
+      own_data_                = true;
+    } break;
+    case AttrType::DATES:
+
+    case AttrType::INTS: {
+      value_.int_value_ = 0;
+      length_           = sizeof(int);
+    } break;
+    case AttrType::FLOATS: {
+      value_.float_value_ = 0;
+      length_             = sizeof(float);
+    } break;
+    case AttrType::UNDEFINED: {
+      ASSERT(false, "please set data type before set null");
+    } break;
+    default: ASSERT(false, "unimplemented");
+  }
+}
 
 const char *Value::data() const
 {
