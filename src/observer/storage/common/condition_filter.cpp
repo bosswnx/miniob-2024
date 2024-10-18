@@ -43,7 +43,7 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
     return RC::INVALID_ARGUMENT;
   }
 
-  if (comp_op < EQUAL_TO || comp_op >= NO_OP) {
+  if (comp_op < CompOp::EQUAL_TO || comp_op >= CompOp::NO_OP) {
     LOG_ERROR("Invalid condition with unsupported compare operation: %d", comp_op);
     return RC::INVALID_ARGUMENT;
   }
@@ -139,12 +139,12 @@ bool DefaultConditionFilter::filter(const Record &rec) const
   int cmp_result = left_value.compare(right_value);
 
   switch (comp_op_) {
-    case EQUAL_TO: return 0 == cmp_result;
-    case LESS_EQUAL: return cmp_result <= 0;
-    case NOT_EQUAL: return cmp_result != 0;
-    case LESS_THAN: return cmp_result < 0;
-    case GREAT_EQUAL: return cmp_result >= 0;
-    case GREAT_THAN: return cmp_result > 0;
+    case CompOp::EQUAL_TO: return 0 == cmp_result;
+    case CompOp::LESS_EQUAL: return cmp_result <= 0;
+    case CompOp::NOT_EQUAL: return cmp_result != 0;
+    case CompOp::LESS_THAN: return cmp_result < 0;
+    case CompOp::GREAT_EQUAL: return cmp_result >= 0;
+    case CompOp::GREAT_THAN: return cmp_result > 0;
 
     default: break;
   }

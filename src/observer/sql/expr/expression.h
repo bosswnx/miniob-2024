@@ -47,6 +47,7 @@ enum class ExprType
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,   ///< 算术运算
   AGGREGATION,  ///< 聚合运算
+  LIKE          ///<  字符串匹配
 };
 
 /**
@@ -467,4 +468,20 @@ public:
 private:
   Type                        aggregate_type_;
   std::unique_ptr<Expression> child_;
+};
+
+class LikeExpr : public Expression
+{
+public:
+  LikeExpr(std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr);
+  ExprType                     type() const override;
+  AttrType                     value_type() const override;
+  int                          value_length() const override;
+  RC                           get_value(const Tuple &tuple, Value &value) const override;
+  std::unique_ptr<Expression> &sExpr();
+  std::unique_ptr<Expression> &pExpr();
+
+private:
+  std::unique_ptr<Expression> sExpr_;
+  std::unique_ptr<Expression> pExpr_;
 };

@@ -126,6 +126,7 @@ STORAGE                                 RETURN_TOKEN(STORAGE);
 FORMAT                                  RETURN_TOKEN(FORMAT);
 NOT                                     RETURN_TOKEN(NOT);
 NULL                                    RETURN_TOKEN(NULL_T);
+LIKE                                    RETURN_TOKEN(LIKE);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

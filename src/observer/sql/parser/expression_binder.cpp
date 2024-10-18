@@ -92,6 +92,10 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
       ASSERT(false, "shouldn't be here");
     } break;
 
+    case ExprType::LIKE: {
+      return bind_like_expression(expr, bound_expressions);
+    } break;
+
     default: {
       LOG_WARN("unknown expression type: %d", static_cast<int>(expr->type()));
       return RC::INTERNAL;
@@ -451,5 +455,54 @@ RC ExpressionBinder::bind_aggregate_expression(
   }
 
   bound_expressions.emplace_back(std::move(aggregate_expr));
+  return RC::SUCCESS;
+}
+
+/// 与 bind_comparison_expression 相似,只需绑定两个子表达式即可
+RC ExpressionBinder::bind_like_expression(
+    std::unique_ptr<Expression> &expr, std::vector<std::unique_ptr<Expression>> &bound_expressions)
+{
+  if (nullptr == expr) {
+    return RC::SUCCESS;
+  }
+
+  auto like_expr = static_cast<LikeExpr *>(expr.get());
+
+  vector<unique_ptr<Expression>> child_bound_expressions;
+  unique_ptr<Expression>        &sExpr = like_expr->sExpr();
+  unique_ptr<Expression>        &pExpr = like_expr->pExpr();
+
+  RC rc = bind_expression(sExpr, child_bound_expressions);
+  if (OB_FAIL(rc)) {
+    return rc;
+  }
+
+  if (child_bound_expressions.size() != 1) {
+    LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  unique_ptr<Expression> &sBoundedExpr = child_bound_expressions[0];
+  if (sBoundedExpr.get() != sExpr.get()) {
+    sExpr.reset(sBoundedExpr.release());
+  }
+
+  child_bound_expressions.clear();
+  rc = bind_expression(pExpr, child_bound_expressions);
+  if (OB_FAIL(rc)) {
+    return rc;
+  }
+
+  if (child_bound_expressions.size() != 1) {
+    LOG_WARN("invalid right children number of comparison expression: %d", child_bound_expressions.size());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  unique_ptr<Expression> &pBoundedExpr = child_bound_expressions[0];
+  if (pBoundedExpr.get() != pExpr.get()) {
+    pExpr.reset(pBoundedExpr.release());
+  }
+
+  bound_expressions.emplace_back(std::move(like_expr));
   return RC::SUCCESS;
 }

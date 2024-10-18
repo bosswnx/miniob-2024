@@ -124,22 +124,22 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
   int cmp_result = left.compare(right);
   result         = false;
   switch (comp_) {
-    case EQUAL_TO: {
+    case CompOp::EQUAL_TO: {
       result = (0 == cmp_result);
     } break;
-    case LESS_EQUAL: {
+    case CompOp::LESS_EQUAL: {
       result = (cmp_result <= 0);
     } break;
-    case NOT_EQUAL: {
+    case CompOp::NOT_EQUAL: {
       result = (cmp_result != 0);
     } break;
-    case LESS_THAN: {
+    case CompOp::LESS_THAN: {
       result = (cmp_result < 0);
     } break;
-    case GREAT_EQUAL: {
+    case CompOp::GREAT_EQUAL: {
       result = (cmp_result >= 0);
     } break;
-    case GREAT_THAN: {
+    case CompOp::GREAT_THAN: {
       result = (cmp_result > 0);
     } break;
     default: {
@@ -584,3 +584,147 @@ RC AggregateExpr::type_from_string(const char *type_str, AggregateExpr::Type &ty
   }
   return rc;
 }
+
+LikeExpr::LikeExpr(std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr)
+    : sExpr_(std::move(sExpr)), pExpr_(std::move(pExpr))
+{}
+
+ExprType LikeExpr::type() const { return ExprType::LIKE; }
+
+AttrType LikeExpr::value_type() const { return AttrType::BOOLEANS; }
+
+int LikeExpr::value_length() const { return sizeof(bool); }
+
+enum class LIKE_RESULT
+{
+  LIKE_TRUE,   // like 匹配成功
+  LIKE_FALSE,  // like 匹配失败
+  LIKE_ABORT   // 内部使用,表示 s 用完而 pattern 还有剩
+};
+
+/// sql like 算法，参考
+/// https://github.com/postgres/postgres/blob/eecd9138a0ef565366427a88866d0651530f7da4/src/backend/utils/adt/like_match.c#L80
+static LIKE_RESULT string_like_internal(const char *s, const char *p)
+{
+  int sLen = strlen(s);
+  int pLen = strlen(p);
+  if (pLen == 1 && p[0] == '%') {
+    return LIKE_RESULT::LIKE_TRUE;
+  }
+  while (pLen > 0 && sLen > 0) {
+    if (*p == '\\') {  // 转移后可以匹配元字符
+      p++;
+      pLen--;
+      if (*p != *s) {
+        return LIKE_RESULT::LIKE_FALSE;
+      }
+    } else if (*p == '%') {
+      p++;
+      pLen--;
+
+      // 滑过 % 和 _ ，找到之后的第一个普通字符
+      while (pLen > 0) {
+        if (*p == '%') {
+          p++;
+          pLen--;
+        } else if (*p == '_') {
+          if (sLen <= 0) {
+            return LIKE_RESULT::LIKE_ABORT;
+          }
+          p++;
+          pLen--;
+          s++;
+          sLen--;
+        } else {
+          break;
+        }
+      }
+      // pattern 以 % 和 _ 结尾
+      if (pLen <= 0) {
+        return LIKE_RESULT::LIKE_TRUE;
+      }
+      char firstpat;
+      if (*p == '\\') {
+        ASSERT(pLen < 2, "LIKE pattern must not end with escape character");
+        firstpat = p[1];
+      } else {
+        firstpat = *p;
+      }
+
+      // 找到 s 中 firstpat 开头的子串，递归匹配
+      while (sLen > 0) {
+        if (*s == firstpat) {
+          LIKE_RESULT matched = string_like_internal(s, p);
+          // 返回 LIKE_TRUE 匹配成功,直接返回
+          // 返回 LIKE_ABORT 此处 s 的长度已经不足 pattern 完成匹配, 下一次循环 s 的长度更短,不必继续递归.快速终止匹配
+          // 返回 LIKE_FALSE 匹配失败,尝试下一个firstpat 开头的子串
+          if (matched != LIKE_RESULT::LIKE_FALSE) {
+            return matched;
+          }
+        }
+        s++;
+        sLen--;
+      }
+      // 此处 sLen < 0， 说明 s 用尽而 pattern 有剩余
+      return LIKE_RESULT::LIKE_ABORT;
+
+    } else if (*p == '_') {
+      // nop
+    } else if (*p != *s) {
+      return LIKE_RESULT::LIKE_FALSE;
+    }
+    p++;
+    pLen--;
+    s++;
+    sLen--;
+  }
+
+  // pattern 已经结束, s 还没有结束
+  if (sLen > 0) {
+    return LIKE_RESULT::LIKE_FALSE;
+  }
+
+  // s 已经结束，pattern 中还剩若干 % ，可以匹配空字符
+  // 此逻辑也能处理 pattern 也结束的情况( pattern 还剩零个 % )
+  while (pLen > 0 && *p == '%') {
+    p++;
+    pLen--;
+  }
+  if (pLen <= 0) {
+    return LIKE_RESULT::LIKE_TRUE;
+  }
+
+  // pLen > 0, s 已经结束, pattern 去掉 % 后仍有其他字符, 无法匹配
+  return LIKE_RESULT::LIKE_ABORT;
+}
+
+bool string_like(const char *s, const char *p) { return string_like_internal(s, p) == LIKE_RESULT::LIKE_TRUE; }
+
+RC LikeExpr::get_value(const Tuple &tuple, Value &value) const
+{
+  Value sValue;
+  sExpr_->get_value(tuple, sValue);
+  if (sValue.attr_type() != AttrType::CHARS) {
+    LOG_ERROR("value type %s doesn't support 'like'", attr_type_to_string(sValue.attr_type()));
+    return RC::UNIMPLEMENTED;
+  }
+  Value pValue;
+  pExpr_->get_value(tuple, pValue);
+  if (pValue.attr_type() != AttrType::CHARS) {
+    LOG_ERROR("value type %s doesn't support 'like'", attr_type_to_string(pValue.attr_type()));
+    return RC::UNIMPLEMENTED;
+  }
+  const std::string s = sValue.get_string();
+  const std::string p = pValue.get_string();
+  value.set_type(AttrType::BOOLEANS);
+  if (sValue.is_null() || pValue.is_null()) {
+    value.set_is_null(true);
+  } else {
+    value.set_is_null(false);
+    value.set_boolean(string_like(s.c_str(), p.c_str()));
+  }
+  return RC::SUCCESS;
+}
+
+std::unique_ptr<Expression> &LikeExpr::sExpr() { return sExpr_; }
+std::unique_ptr<Expression> &LikeExpr::pExpr() { return pExpr_; }

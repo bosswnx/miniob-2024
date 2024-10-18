@@ -202,8 +202,13 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
         return rc;
       }
     }
-
-    ComparisonExpr *cmp_expr = new ComparisonExpr(filter_unit->comp(), std::move(left), std::move(right));
+    // like 和其他比较运算符在语法分析阶段共用一套逻辑,在这里分开
+    Expression *cmp_expr;
+    if (filter_unit->comp() == CompOp::LIKE) {
+      cmp_expr = new LikeExpr(std::move(left), std::move(right));
+    } else {
+      cmp_expr = new ComparisonExpr(filter_unit->comp(), std::move(left), std::move(right));
+    }
     cmp_exprs.emplace_back(cmp_expr);
   }
 

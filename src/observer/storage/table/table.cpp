@@ -136,6 +136,7 @@ RC Table::drop(Db *db, const char *table_name, const char *base_dir)
   std::string meta_file_path = table_meta_file(base_dir, table_name);
   // TODO: delete index
   data_buffer_pool_->close_file();
+  data_buffer_pool_ = nullptr;  // 防止析构函数中再次尝试关闭文件
   if (unlink(meta_file_path.c_str()) == -1) {
     LOG_ERROR("Failed to remove table metadata file for %s due to %s", meta_file_path, strerror(errno));
     return RC::INTERNAL;
@@ -340,6 +341,7 @@ RC Table::init_record_handler(const char *base_dir)
   string data_file = table_data_file(base_dir, table_meta_.name());
 
   BufferPoolManager &bpm = db_->buffer_pool_manager();
+  // 此处初始化 data_buffer_pool_
   RC                 rc  = bpm.open_file(db_->log_handler(), data_file.c_str(), data_buffer_pool_);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to open disk buffer pool for file:%s. rc=%d:%s", data_file.c_str(), rc, strrc(rc));
