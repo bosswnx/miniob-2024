@@ -131,12 +131,19 @@ void Value::set_data(char *data, int length)
     case AttrType::INTS: {
       // 避免未对齐的数据访问
       memcpy(&value_.int_value_, data, length);
+      length_ = length;
     } break;
     case AttrType::FLOATS: {
       memcpy(&value_.float_value_, data, length);
+      length_ = length;
     } break;
     case AttrType::BOOLEANS: {
       memcpy(&value_.bool_value_, data, length);
+      length_ = length;
+    } break;
+    case AttrType::DATES: {
+      memcpy(&value_.int_value_, data, length);
+      length_ = length;
     } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
