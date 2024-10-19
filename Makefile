@@ -6,6 +6,7 @@ env:
 	@bash build.sh init
 
 run: build
+	@rm -rf miniob
 	@./build_debug/bin/observer -f ../build_debug/etc/observer.ini -P cli
 
 help:

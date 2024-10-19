@@ -131,6 +131,7 @@ public:
   int      length() const { return length_; }
   AttrType attr_type() const { return attr_type_; }
   [[nodiscard]] bool is_null() const { return is_null_; }
+  [[nodiscard]] bool is_date_valid() const;
 
 public:
   /**
