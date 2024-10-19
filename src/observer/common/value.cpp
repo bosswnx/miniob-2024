@@ -195,13 +195,23 @@ void Value::set_string(const char *s, int len /*= 0*/)
   }
 }
 
+// 将输入的日期字符串转换为 int 类型存储
 void Value::set_date(const char *s)
 {
   reset();
   attr_type_        = AttrType::DATES;
   string date       = s;
-  date              = date.substr(0, 4) + date.substr(5, 2) + date.substr(8, 2);
-  value_.int_value_ = atoi(date.c_str());
+  string            dates;  // 存储分割好的日期字符串
+  std::stringstream ss(date);
+  std::string       part;
+  while (std::getline(ss, part, '-')) {
+    if (part.length() == 1) {
+      dates += "0" + part;
+    } else {
+      dates += part;
+    }
+  }
+  value_.int_value_ = atoi(dates.c_str());
   length_           = sizeof(value_.int_value_);
 }
 
