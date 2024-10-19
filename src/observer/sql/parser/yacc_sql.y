@@ -458,6 +458,9 @@ value:
     |DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
+      if (!$$->is_date_valid()) {
+        $$->reset();
+      }
       free(tmp);
       free($1);
     }

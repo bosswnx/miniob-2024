@@ -57,11 +57,6 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
       LOG_WARN("value of column %s cannot be null", table_meta.field(i)->name());
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
-    // 如果是日期类型，检查日期是否合法
-    if (values[i].attr_type() == AttrType::DATES && !values[i].is_date_valid()) {
-      LOG_WARN("invalid date value: %s", values[i].to_string().c_str());
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-    }
   }
 
   // everything alright
