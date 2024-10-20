@@ -89,7 +89,7 @@ Value &Value::operator=(const Value &other)
   return *this;
 }
 
-Value &Value::operator=(Value &&other)
+Value &Value::operator=(Value &&other) noexcept
 {
   if (this == &other) {
     return *this;

@@ -52,6 +52,9 @@ enum class CompOp
   GREAT_EQUAL,  ///< ">="
   GREAT_THAN,   ///< ">"
   LIKE,         ///< "like"
+  NOT_LIKE,     ///< "not like"
+  IS,           ///< is null
+  NOT_IS,       ///< is not null
   NO_OP,
 };
 

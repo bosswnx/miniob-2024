@@ -35,7 +35,7 @@ public:
   friend class BooleanType;
   friend class CharType;
   friend class DateType;
-  /// 构造NULL，类型未定义，需要设置正确的类型
+  /// 构造NULL
   Value();
 
   ~Value() { reset(); }
@@ -53,7 +53,7 @@ public:
   Value(Value &&other);
 
   Value &operator=(const Value &other);
-  Value &operator=(Value &&other);
+  Value &operator=(Value &&other) noexcept;
 
   void reset();
 
