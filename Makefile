@@ -5,9 +5,13 @@ build: format
 env:
 	@bash build.sh init
 
-run: build
+run_debug: build
 	@rm -rf miniob
-	@./build_debug/bin/observer -f ../build_debug/etc/observer.ini -P cli
+	@./build_debug/bin/observer -f ./etc/observer.ini -P cli
+
+run_release: build
+	@rm -rf miniob
+	@./build/bin/observer -f ./etc/observer.ini -P cli
 
 help:
 	@bash build.sh -h
