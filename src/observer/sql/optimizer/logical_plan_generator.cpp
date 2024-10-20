@@ -204,10 +204,13 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
     }
     // like 和其他比较运算符在语法分析阶段共用一套逻辑,在这里分开
     Expression *cmp_expr;
-    if (filter_unit->comp() == CompOp::LIKE) {
-      cmp_expr = new LikeExpr(std::move(left), std::move(right));
+    CompOp      op = filter_unit->comp();
+    if (op == CompOp::LIKE || op == CompOp::NOT_LIKE) {
+      cmp_expr = new LikeExpr(op, std::move(left), std::move(right));
+    } else if (op == CompOp::IS || op == CompOp::NOT_IS) {
+      cmp_expr = new IsNullExpr(op, std::move(left), std::move(right));
     } else {
-      cmp_expr = new ComparisonExpr(filter_unit->comp(), std::move(left), std::move(right));
+      cmp_expr = new ComparisonExpr(op, std::move(left), std::move(right));
     }
     cmp_exprs.emplace_back(cmp_expr);
   }
