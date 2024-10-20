@@ -137,6 +137,9 @@ bool DefaultConditionFilter::filter(const Record &rec) const
   }
 
   int cmp_result = left_value.compare(right_value);
+  if (cmp_result == INT32_MAX) {
+    return false;
+  }
 
   switch (comp_op_) {
     case CompOp::EQUAL_TO: return 0 == cmp_result;

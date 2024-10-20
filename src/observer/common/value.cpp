@@ -326,7 +326,7 @@ string Value::to_string() const
 int Value::compare(const Value &other) const
 {
   if (is_null_ || other.is_null_) {
-    return INT32_MAX;  // 表示未实现的比较
+    return INT32_MAX;  // 空值参与比较，返回 false
   }
   return DataType::type_instance(this->attr_type_)->compare(*this, other);
 }
