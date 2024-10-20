@@ -327,6 +327,9 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
       copy_len = data_len + 1;
     }
   }
+  if (field->type() == AttrType::VECTORS) {
+    copy_len = min(field->len() * sizeof(float), data_len * sizeof(float) + sizeof(float));
+  }
   memcpy(record_data + field->offset(), value.data(), copy_len);
   if (value.is_null()) {
     bitmap.set_bit(field->field_id() - table_meta_.sys_field_num());

@@ -90,6 +90,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         STRING_T
         FLOAT_T
         DATE_T
+        VECTOR_T
         HELP
         EXIT
         DOT //QUOTE
@@ -142,6 +143,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <string> ID
 %token <string> SSS
 %token <string> DATE
+%token <string> VECTOR
 //非终结符
 
 /** 
@@ -408,6 +410,7 @@ type:
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
     | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
+    | VECTOR_T   { $$ = static_cast<int>(AttrType::VECTORS); }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 
@@ -458,6 +461,12 @@ value:
     |DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
+      free(tmp);
+      free($1);
+    }
+    |VECTOR {
+      char *tmp = common::substr($1,1,strlen($1)-2);
+      $$ = Value::from_vector(tmp);
       free(tmp);
       free($1);
     }
