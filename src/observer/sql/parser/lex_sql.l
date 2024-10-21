@@ -62,6 +62,7 @@ extern double atof();
 /* 左侧是宏定义，右侧是正则表达式，用于下面规则的匹配 */
 WHITE_SAPCE      [\ \t\b\f]
 DIGIT            [0-9]+
+FLOAT            [0-9]*\.[0-9]+
 
 ID               [A-Za-z_]+[A-Za-z0-9_]*
 DOT              \.
@@ -83,9 +84,8 @@ QUOTE            [\'\"]
 [\-]?{DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
 \"[0-9]{4}-[0-9]{2}-[0-9]{2}\"          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
 \'[0-9]{4}-[0-9]{2}-[0-9]{2}\'          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
-\'\[([\-]?[0-9]+(\.[0-9]+)?(,[\-]?[0-9]+(\.[0-9]+)?)*)\]\' yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
-\"\[([\-]?[0-9]+(\.[0-9]+)?(,[\-]?[0-9]+(\.[0-9]+)?)*)\]\" yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
-
+\"\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\]\" yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
+\'\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\]\' yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
