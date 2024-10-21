@@ -539,14 +539,20 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $2;
       }
 
+      // from
       if ($4 != nullptr) {
         $$->selection.relations.swap(*$4);
         delete $4;
       }
 
+      if ($6 != nullptr) {
+        $$->selection.conditions.swap(*$6);
+        delete $6;
+      }
+
+      // join
       if ($5 != nullptr) {
-        /* 通过遍历 将$5中的数据取出来*/
-        /* 先 reverse 一下 */
+        /* 由于是递归顺序解析的join，需要 reverse */
         std::reverse($5->begin(), $5->end());
         for (auto &join : *$5) {
           $$->selection.relations.push_back(join.relation);
@@ -555,11 +561,6 @@ select_stmt:        /*  select 语句的语法解析树*/
           }
         }
         // delete $5; // TODO(Soulter): free test
-      }
-
-      if ($6 != nullptr) {
-        $$->selection.conditions.swap(*$6);
-        delete $6;
       }
 
       if ($7 != nullptr) {
