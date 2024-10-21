@@ -472,9 +472,14 @@ value:
       free($1);
     }
     |VECTOR {
-      char *tmp = common::substr($1,1,strlen($1)-2);
-      $$ = Value::from_vector(tmp);
-      free(tmp);
+      // 如果以双引号或单引号开头，去掉头尾的引号
+      if ($1[0] == '\"' || $1[0] == '\'') {
+        char *tmp = common::substr($1,1,strlen($1)-2);
+        $$ = Value::from_vector(tmp);
+        free(tmp);
+      } else {
+        $$ = Value::from_vector($1);
+      }
       free($1);
     }
     |NULL_T {
