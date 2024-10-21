@@ -90,6 +90,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         STRING_T
         FLOAT_T
         DATE_T
+        VECTOR_T
         HELP
         EXIT
         DOT //QUOTE
@@ -115,6 +116,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         NOT
         NULL_T
         LIKE
+        L2_DISTANCE
+        COSINE_DISTANCE
+        INNER_PRODUCT
         IS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
@@ -143,6 +147,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <string> ID
 %token <string> SSS
 %token <string> DATE
+%token <string> VECTOR
 //非终结符
 
 /** 
@@ -409,6 +414,7 @@ type:
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
     | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
+    | VECTOR_T   { $$ = static_cast<int>(AttrType::VECTORS); }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 
@@ -462,6 +468,12 @@ value:
       if (!$$->is_date_valid()) {
         $$->reset();
       }
+      free(tmp);
+      free($1);
+    }
+    |VECTOR {
+      char *tmp = common::substr($1,1,strlen($1)-2);
+      $$ = Value::from_vector(tmp);
       free(tmp);
       free($1);
     }
@@ -592,7 +604,18 @@ expression:
     | '*' {
       $$ = new StarExpr();
     }
-    // your code here
+    | L2_DISTANCE LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::L2_DISTANCE, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
+    }
+    | COSINE_DISTANCE LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::COSINE_DISTANCE, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
+    }
+    | INNER_PRODUCT LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::INNER_PRODUCT, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
+    }
     ;
 
 rel_attr:

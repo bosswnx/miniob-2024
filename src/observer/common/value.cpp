@@ -12,6 +12,9 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2023/06/28.
 //
 
+#include <sstream>
+#include <limits>
+
 #include "common/value.h"
 
 #include "common/lang/comparator.h"
@@ -36,6 +39,14 @@ Value *Value::from_date(const char *s)
 {
   auto *val = new Value();
   val->set_date(s);
+  return val;
+}
+
+// 从向量字符串创建 Value
+Value *Value::from_vector(const char *s)
+{
+  Value *val = new Value();
+  val->set_vector(s);
   return val;
 }
 
@@ -146,6 +157,22 @@ void Value::set_data(char *data, int length)
       memcpy(&value_.int_value_, data, length);
       length_ = length;
     } break;
+    case AttrType::VECTORS: {
+      int           offset = 0;
+      vector<float> vec;
+      while (offset < length * sizeof(float)) {
+        float f;
+        memcpy(&f, data + offset, sizeof(float));
+        // 如果 f 是 nan，说明数据已经读完
+        if (f != f) {
+          break;
+        }
+        vec.push_back(f);
+        offset += sizeof(float);
+      }
+      value_.vector_value_ = new vector<float>(vec);
+      length_ = value_.vector_value_->size(); // Value 的 length_ 是向量的维度
+    } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -224,6 +251,30 @@ void Value::set_date(int val)
   length_           = sizeof(val);
 }
 
+void Value::set_vector(const char *s)
+{
+  reset();
+  attr_type_     = AttrType::VECTORS;
+  string vector_ = s;
+  vector_        = vector_.substr(1, vector_.size() - 2);  // 去掉中括号
+  vector<float>      vec;
+  std::istringstream iss(vector_);
+  string             token;
+  while (std::getline(iss, token, ',')) {
+    vec.push_back(std::stof(token));
+  }
+  value_.vector_value_ = new vector<float>(vec);
+  length_              = value_.vector_value_->size();
+}
+
+void Value::set_vector(const vector<float> &vec)
+{
+  reset();
+  attr_type_           = AttrType::VECTORS;
+  value_.vector_value_ = new vector<float>(vec);
+  length_              = sizeof(value_.vector_value_);
+}
+
 void Value::set_value(const Value &value)
 {
   switch (value.attr_type_) {
@@ -241,6 +292,9 @@ void Value::set_value(const Value &value)
     } break;
     case AttrType::DATES: {
       set_date(value.get_int());
+    } break;
+    case AttrType::VECTORS: {
+      set_vector(value.get_vector());
     } break;
     default: {
       ASSERT(false, "got an invalid value type");
@@ -290,6 +344,10 @@ void Value::set_is_null(bool _is_null)
       value_.float_value_ = 0;
       length_             = sizeof(float);
     } break;
+    case AttrType::VECTORS: {
+      value_.vector_value_ = new vector<float>();
+      length_              = sizeof(value_.vector_value_);
+    } break;
     case AttrType::UNDEFINED: {
       ASSERT(false, "please set data type before set null");
     } break;
@@ -303,6 +361,18 @@ const char *Value::data() const
     case AttrType::CHARS: {
       return value_.pointer_value_;
     } break;
+    case AttrType::VECTORS: {
+      char *data   = new char[sizeof(float) * length_ + sizeof(float)];
+      int   offset = 0;
+      for (auto &f : *value_.vector_value_) {
+        memcpy(data + offset, &f, sizeof(float));
+        offset += sizeof(float);
+      }
+      // 用 nan 标记数据结束
+      float nan = std::numeric_limits<float>::quiet_NaN();
+      memcpy(data + offset, &nan, sizeof(float));
+      return data;
+    }
     default: {
       return (const char *)&value_;
     } break;
@@ -315,7 +385,7 @@ string Value::to_string() const
   if (is_null_) {
     return "NULL";
   }
-  RC     rc = DataType::type_instance(this->attr_type_)->to_string(*this, res);
+  RC rc = DataType::type_instance(this->attr_type_)->to_string(*this, res);
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to convert value to string. type=%s", attr_type_to_string(this->attr_type_));
     return "";
@@ -391,6 +461,19 @@ float Value::get_float() const
 }
 
 string Value::get_string() const { return this->to_string(); }
+
+vector<float> Value::get_vector() const
+{
+  switch (attr_type_) {
+    case AttrType::VECTORS: {
+      return *value_.vector_value_;
+    } break;
+    default: {
+      LOG_WARN("unknown data type. type=%d", attr_type_);
+      return vector<float>();
+    }
+  }
+}
 
 bool Value::get_boolean() const
 {

@@ -35,6 +35,7 @@ public:
   friend class BooleanType;
   friend class CharType;
   friend class DateType;
+  friend class VectorType;
   /// 构造NULL
   Value();
 
@@ -48,6 +49,7 @@ public:
   explicit Value(const char *s, int len = 0);
 
   static Value *from_date(const char *s);
+  static Value *from_vector(const char *s);
 
   Value(const Value &other);
   Value(Value &&other);
@@ -142,18 +144,21 @@ public:
   float  get_float() const;
   string get_string() const;
   bool   get_boolean() const;
-
-private:
+  vector<float> get_vector() const;
+  
+  // 这里把下面的 setter 都放到了 public 里面，这样可以直接通过 Value 对象调用这些方法
   void set_int(int val);
   void set_float(float val);
   void set_string(const char *s, int len = 0);
   void set_date(const char *s);  // 从 "YYYY-MM-DD" 格式的日期字符串创建 Value
   void set_date(int val);        // 从 YYYYMMDD 格式的整数创建 Value
+  void set_vector(const char *s);
+  void set_vector(const vector<float> &vec);
   void set_string_from_other(const Value &other);
 
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;
-  int      length_    = 0;
+  int      length_    = 0; // 对于向量数据，length_ 表示向量的维度
   bool     is_null_   = false;
 
   union Val
@@ -162,6 +167,7 @@ private:
     float   float_value_;
     bool    bool_value_;
     char   *pointer_value_;
+    vector<float> *vector_value_; // 向量数据
   } value_ = {.int_value_ = 0};
 
   /// 是否申请并占有内存, 目前对于 CHARS 类型 own_data_ 为true, 其余类型 own_data_ 为false

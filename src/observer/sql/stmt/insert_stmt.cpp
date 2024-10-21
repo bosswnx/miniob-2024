@@ -57,6 +57,11 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
       LOG_WARN("value of column %s cannot be null", table_meta.field(i)->name());
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
+    // 检查 VECTOR 的长度是否超过限制
+    if (values[i].length() > table_meta.field(i)->len()) {
+      LOG_WARN("value length exceeds limit: %d > %d", values[i].length(), table_meta.field(i)->len());
+      return RC::INVALID_ARGUMENT;
+    }
   }
 
   // everything alright

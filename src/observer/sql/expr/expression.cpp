@@ -12,6 +12,8 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/07/05.
 //
 
+#include <cmath>
+
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
 #include "sql/expr/arithmetic_operator.hpp"
@@ -313,6 +315,8 @@ AttrType ArithmeticExpr::value_type() const
   if (left_->value_type() == AttrType::INTS && right_->value_type() == AttrType::INTS &&
       arithmetic_type_ != Type::DIV) {
     return AttrType::INTS;
+  } else if (left_->value_type() == AttrType::VECTORS && right_->value_type() == AttrType::VECTORS) {
+    return AttrType::VECTORS;
   }
 
   return AttrType::FLOATS;
@@ -739,6 +743,79 @@ RC LikeExpr::get_value(const Tuple &tuple, Value &value) const
 std::unique_ptr<Expression> &LikeExpr::sExpr() { return sExpr_; }
 std::unique_ptr<Expression> &LikeExpr::pExpr() { return pExpr_; }
 
+// VectorDistanceExpr
+
+VectorDistanceExpr::VectorDistanceExpr(VectorDistanceExpr::Type type, Expression *left, Expression *right)
+    : type_(type), left_(left), right_(right)
+{}
+VectorDistanceExpr::VectorDistanceExpr(VectorDistanceExpr::Type type, unique_ptr<Expression> left, unique_ptr<Expression> right)
+    : type_(type), left_(std::move(left)), right_(std::move(right))
+{}
+
+ExprType VectorDistanceExpr::type() const { return ExprType::VECTOR_DISTANCE_EXPR; }
+
+AttrType VectorDistanceExpr::value_type() const { return AttrType::FLOATS; }
+
+int VectorDistanceExpr::value_length() const { return sizeof(float); }
+
+RC VectorDistanceExpr::get_value(const Tuple &tuple, Value &value) const {
+  Value left_value;
+  Value right_value;
+  value.set_type(AttrType::FLOATS);
+  RC rc = left_->get_value(tuple, left_value);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  rc = right_->get_value(tuple, right_value);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  if (left_value.attr_type() != AttrType::VECTORS || right_value.attr_type() != AttrType::VECTORS) {
+    return RC::INVALID_ARGUMENT;
+  }
+  const std::vector<float> &left = left_value.get_vector();
+  const std::vector<float> &right = right_value.get_vector();
+  if (left.size() != right.size()) {
+    return RC::INVALID_ARGUMENT;
+  }
+
+  switch (type_) {
+    case Type::L2_DISTANCE: {
+      float sum = 0;
+      for (size_t i = 0; i < left.size(); i++) {
+        sum += (left[i] - right[i]) * (left[i] - right[i]);
+      }
+      sum = sqrt(sum);
+      value.set_float(sum);
+    } break;
+    case Type::COSINE_DISTANCE: {
+      float dot = 0;
+      float left_norm = 0;
+      float right_norm = 0;
+      for (size_t i = 0; i < left.size(); i++) {
+        dot += left[i] * right[i];
+        left_norm += left[i] * left[i];
+        right_norm += right[i] * right[i];
+      }
+      float cosine = dot / (sqrt(left_norm) * sqrt(right_norm));
+      value.set_float(1 - cosine);
+    } break;
+    case Type::INNER_PRODUCT: {
+      float dot = 0;
+      for (size_t i = 0; i < left.size(); i++) {
+        dot += left[i] * right[i];
+      }
+      value.set_float(dot);
+    } break;
+    default: {
+      return RC::UNIMPLEMENTED;
+    }
+  }
+  return RC::SUCCESS;
+}
+
+std::unique_ptr<Expression> &VectorDistanceExpr::left() { return left_; }
+std::unique_ptr<Expression> &VectorDistanceExpr::right() { return right_; }
 IsNullExpr::IsNullExpr(CompOp op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
     : op_(op), left_(std::move(left)), right_(std::move(right)){};
 ExprType IsNullExpr::type() const { return ExprType::IS_NULL; }

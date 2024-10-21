@@ -69,7 +69,12 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
     for (size_t i = 0; i < trx_fields->size(); i++) {
       const FieldMeta &field_meta = (*trx_fields)[i];
       fields_[i] = FieldMeta(field_meta.name(), field_meta.type(), field_offset, field_meta.len(), false /*visible*/, field_meta.field_id());
-      field_offset += field_meta.len();
+      // 对 Vector 类型进行特殊处理
+      if (field_meta.type() == AttrType::VECTORS) {
+        field_offset += field_meta.len() * sizeof(float);
+      } else {
+        field_offset += field_meta.len();
+      }
     }
 
     trx_field_num = static_cast<int>(trx_fields->size());
@@ -92,8 +97,12 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;
     }
-
-    field_offset += attr_info.length;
+    // 对 Vector 类型进行特殊处理
+    if (attr_info.type == AttrType::VECTORS) {
+      field_offset += attr_info.length * sizeof(float);
+    } else {
+      field_offset += attr_info.length;
+    }
   }
   record_size_ = field_offset;
 
@@ -273,13 +282,23 @@ int TableMeta::deserialize(std::istream &is)
   storage_format_ = static_cast<StorageFormat>(storage_format);
   name_.swap(table_name);
   fields_.swap(fields);
-  record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+  
+  // 对 Vector 类型进行特殊处理
+  if (fields_.back().type() == AttrType::VECTORS) {
+    record_size_ = fields_.back().offset() + fields_.back().len()*sizeof(float) - fields_.begin()->offset();
+  } else {
+    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+  }
 
   null_bitmap_start_ = 0;
   for (const FieldMeta &field_meta : fields_) {
     if (!field_meta.visible()) {
       trx_fields_.push_back(field_meta); // 字段加上trx标识更好
-      null_bitmap_start_ += field_meta.len();
+      if (field_meta.type() == AttrType::VECTORS) {
+        null_bitmap_start_ += field_meta.len() * sizeof(float);
+      } else {
+        null_bitmap_start_ += field_meta.len();
+      }
     }
   }
   record_size_ += std::ceil((field_num - trx_fields_.size()) / 8.0);

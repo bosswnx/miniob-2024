@@ -96,6 +96,10 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
       return bind_like_expression(expr, bound_expressions);
     } break;
 
+    case ExprType::VECTOR_DISTANCE_EXPR: {
+      return bind_vector_distance_expression(expr, bound_expressions);
+    } break;
+
     case ExprType::IS_NULL: {
       return bind_is_null_expression(expr, bound_expressions);
     } break;
@@ -508,6 +512,54 @@ RC ExpressionBinder::bind_like_expression(
   }
 
   bound_expressions.emplace_back(std::move(like_expr));
+  return RC::SUCCESS;
+}
+
+RC ExpressionBinder::bind_vector_distance_expression(
+    std::unique_ptr<Expression> &expr, std::vector<std::unique_ptr<Expression>> &bound_expressions)
+{
+  if (nullptr == expr) {
+    return RC::SUCCESS;
+  }
+
+  auto vde = static_cast<VectorDistanceExpr *>(expr.get());
+
+  vector<unique_ptr<Expression>> child_bound_expressions;
+  unique_ptr<Expression>        &left = vde->left();
+  unique_ptr<Expression>        &right = vde->right();
+
+  RC rc = bind_expression(left, child_bound_expressions);
+  if (OB_FAIL(rc)) {
+    return rc;
+  }
+
+  if (child_bound_expressions.size() != 1) {
+    LOG_WARN("invalid left children number of comparison expression: %d", child_bound_expressions.size());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  unique_ptr<Expression> &leftBoundedExpr = child_bound_expressions[0];
+  if (leftBoundedExpr.get() != left.get()) {
+    left.reset(leftBoundedExpr.release());
+  }
+
+  child_bound_expressions.clear();
+  rc = bind_expression(right, child_bound_expressions);
+  if (OB_FAIL(rc)) {
+    return rc;
+  }
+
+  if (child_bound_expressions.size() != 1) {
+    LOG_WARN("invalid right children number of comparison expression: %d", child_bound_expressions.size());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  unique_ptr<Expression> &rightBoundedExpr = child_bound_expressions[0];
+  if (rightBoundedExpr.get() != right.get()) {
+    right.reset(rightBoundedExpr.release());
+  }
+
+  bound_expressions.emplace_back(std::move(expr));
   return RC::SUCCESS;
 }
 
