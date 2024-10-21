@@ -545,11 +545,6 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $4;
       }
 
-      if ($6 != nullptr) {
-        $$->selection.conditions.swap(*$6);
-        delete $6;
-      }
-
       // join
       if ($5 != nullptr) {
         /* 由于是递归顺序解析的join，需要 reverse */
@@ -561,6 +556,15 @@ select_stmt:        /*  select 语句的语法解析树*/
           }
         }
         // delete $5; // TODO(Soulter): free test
+      }
+
+      if ($6 != nullptr) {
+        // $$->selection.conditions.swap(*$6);
+        for (auto &condition : *$6) {
+          $$->selection.conditions.emplace_back(condition);
+        }
+        std::reverse($$->selection.conditions.begin(), $$->selection.conditions.end());
+        delete $6;
       }
 
       if ($7 != nullptr) {
