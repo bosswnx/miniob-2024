@@ -17,12 +17,10 @@ See the Mulan PSL v2 for more details. */
 #include "common/value.h"
 #include "storage/record/record_manager.h"
 #include "storage/table/table.h"
-#include <math.h>
-#include <stddef.h>
 
 using namespace common;
 
-ConditionFilter::~ConditionFilter() {}
+ConditionFilter::~ConditionFilter() = default;
 
 DefaultConditionFilter::DefaultConditionFilter()
 {
@@ -34,7 +32,7 @@ DefaultConditionFilter::DefaultConditionFilter()
   right_.attr_length = 0;
   right_.attr_offset = 0;
 }
-DefaultConditionFilter::~DefaultConditionFilter() {}
+DefaultConditionFilter::~DefaultConditionFilter() = default;
 
 RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op)
 {
@@ -186,9 +184,9 @@ RC CompositeConditionFilter::init(Table &table, const ConditionSqlNode *conditio
   }
 
   RC                rc                = RC::SUCCESS;
-  ConditionFilter **condition_filters = new ConditionFilter *[condition_num];
+  auto **condition_filters = new ConditionFilter *[condition_num];
   for (int i = 0; i < condition_num; i++) {
-    DefaultConditionFilter *default_condition_filter = new DefaultConditionFilter();
+    auto *default_condition_filter = new DefaultConditionFilter();
     rc                                               = default_condition_filter->init(table, conditions[i]);
     if (rc != RC::SUCCESS) {
       delete default_condition_filter;
