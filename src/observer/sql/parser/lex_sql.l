@@ -82,10 +82,11 @@ QUOTE            [\'\"]
 
 [\-]?{DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
 [\-]?{DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
-\"[0-9]{4}-[0-9]{2}-[0-9]{2}\"          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
-\'[0-9]{4}-[0-9]{2}-[0-9]{2}\'          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
 \"\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\]\" yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
 \'\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\]\' yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
+\"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\"          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
+\'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\'          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
+
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
@@ -133,6 +134,7 @@ LIKE                                    RETURN_TOKEN(LIKE);
 L2_DISTANCE                             RETURN_TOKEN(L2_DISTANCE);
 COSINE_DISTANCE                         RETURN_TOKEN(COSINE_DISTANCE);
 INNER_PRODUCT                           RETURN_TOKEN(INNER_PRODUCT);
+IS                                      RETURN_TOKEN(IS);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

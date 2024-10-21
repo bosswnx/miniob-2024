@@ -36,7 +36,7 @@ public:
   friend class CharType;
   friend class DateType;
   friend class VectorType;
-  /// 构造NULL，类型未定义，需要设置正确的类型
+  /// 构造NULL
   Value();
 
   ~Value() { reset(); }
@@ -55,7 +55,7 @@ public:
   Value(Value &&other);
 
   Value &operator=(const Value &other);
-  Value &operator=(Value &&other);
+  Value &operator=(Value &&other) noexcept;
 
   void reset();
 
@@ -133,6 +133,7 @@ public:
   int      length() const { return length_; }
   AttrType attr_type() const { return attr_type_; }
   [[nodiscard]] bool is_null() const { return is_null_; }
+  [[nodiscard]] bool is_date_valid() const;
 
 public:
   /**

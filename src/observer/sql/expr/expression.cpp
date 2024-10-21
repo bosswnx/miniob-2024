@@ -125,6 +125,9 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
   RC  rc         = RC::SUCCESS;
   int cmp_result = left.compare(right);
   result         = false;
+  if (cmp_result == INT32_MAX) {
+    return RC::SUCCESS;
+  }
   switch (comp_) {
     case CompOp::EQUAL_TO: {
       result = (0 == cmp_result);
@@ -589,8 +592,8 @@ RC AggregateExpr::type_from_string(const char *type_str, AggregateExpr::Type &ty
   return rc;
 }
 
-LikeExpr::LikeExpr(std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr)
-    : sExpr_(std::move(sExpr)), pExpr_(std::move(pExpr))
+LikeExpr::LikeExpr(CompOp op, std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr)
+    : op_(op), sExpr_(std::move(sExpr)), pExpr_(std::move(pExpr))
 {}
 
 ExprType LikeExpr::type() const { return ExprType::LIKE; }
@@ -725,7 +728,14 @@ RC LikeExpr::get_value(const Tuple &tuple, Value &value) const
     value.set_is_null(true);
   } else {
     value.set_is_null(false);
-    value.set_boolean(string_like(s.c_str(), p.c_str()));
+    bool like = string_like(s.c_str(), p.c_str());
+    if (op_ == CompOp::LIKE) {
+      value.set_boolean(like);
+    } else if (op_ == CompOp::NOT_LIKE) {
+      value.set_boolean(!like);
+    } else {
+      ASSERT(false, "LikeExpr cannot handle CompOp: %d", static_cast<int>(op_));
+    }
   }
   return RC::SUCCESS;
 }
@@ -806,3 +816,32 @@ RC VectorDistanceExpr::get_value(const Tuple &tuple, Value &value) const {
 
 std::unique_ptr<Expression> &VectorDistanceExpr::left() { return left_; }
 std::unique_ptr<Expression> &VectorDistanceExpr::right() { return right_; }
+IsNullExpr::IsNullExpr(CompOp op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
+    : op_(op), left_(std::move(left)), right_(std::move(right)){};
+ExprType IsNullExpr::type() const { return ExprType::IS_NULL; }
+AttrType IsNullExpr::value_type() const { return AttrType::BOOLEANS; }
+int      IsNullExpr::value_length() const { return sizeof(bool); }
+RC       IsNullExpr::get_value(const Tuple &tuple, Value &value) const
+{
+  ASSERT(right_->type() == ExprType::VALUE, "'is' must be followed by null/not null");
+  auto null_expr  = static_cast<ValueExpr *>(right_.get());
+  auto null_value = null_expr->get_value();
+  ASSERT(null_value.is_null(), "'is' must be followed by null/not null");
+  Value left_value;
+  RC    rc = left_->get_value(tuple, left_value);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to get left value, rc=", strrc(rc));
+    return rc;
+  }
+  bool is = left_value.is_null();
+  if (op_ == CompOp::IS) {
+    value.set_boolean(is);
+  } else if (op_ == CompOp::NOT_IS) {
+    value.set_boolean(!is);
+  } else {
+    ASSERT(false, "IsNullExpr cannot handle CompOp: %d", static_cast<int>(op_));
+  }
+  return RC::SUCCESS;
+}
+std::unique_ptr<Expression> &IsNullExpr::left() { return left_; }
+std::unique_ptr<Expression> &IsNullExpr::right() { return right_; }

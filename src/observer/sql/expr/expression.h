@@ -49,6 +49,7 @@ enum class ExprType
   AGGREGATION,  ///< 聚合运算
   LIKE,          ///<  字符串匹配
   VECTOR_DISTANCE_EXPR,  ///< 向量距离表达式(内含三种距离计算方式)
+  IS_NULL       ///< 判断是否为 NULL
 };
 
 /**
@@ -71,7 +72,7 @@ public:
   virtual ~Expression() = default;
 
   /**
-   * @brief 判断两个表达式是否相等
+   * @brief 判断两个表达式是否相等(只要求形式上的相等，不考虑值是否相等）
    */
   virtual bool equal(const Expression &other) const { return false; }
   /**
@@ -474,7 +475,7 @@ private:
 class LikeExpr : public Expression
 {
 public:
-  LikeExpr(std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr);
+  LikeExpr(CompOp op, std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr);
   ExprType                     type() const override;
   AttrType                     value_type() const override;
   int                          value_length() const override;
@@ -483,6 +484,7 @@ public:
   std::unique_ptr<Expression> &pExpr();
 
 private:
+  CompOp                      op_;
   std::unique_ptr<Expression> sExpr_;
   std::unique_ptr<Expression> pExpr_;
 };
@@ -507,6 +509,23 @@ public:
 
 private:
   Type                       type_;
+  std::unique_ptr<Expression> left_;
+  std::unique_ptr<Expression> right_;
+};
+
+class IsNullExpr : public Expression
+{
+public:
+  IsNullExpr(CompOp op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
+  ExprType                     type() const override;
+  AttrType                     value_type() const override;
+  int                          value_length() const override;
+  RC                           get_value(const Tuple &tuple, Value &value) const override;
+  std::unique_ptr<Expression> &left();
+  std::unique_ptr<Expression> &right();
+
+private:
+  CompOp                      op_;
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
 };

@@ -104,7 +104,6 @@ RC PredicatePushdownRewriter::get_exprs_can_pushdown(
     std::vector<std::unique_ptr<Expression>> &child_exprs = conjunction_expr->children();
     for (auto iter = child_exprs.begin(); iter != child_exprs.end();) {
       // 对每个子表达式，判断是否可以下放到table get 算子
-      // 如果可以的话，就从当前孩子节点中删除他
       rc = get_exprs_can_pushdown(*iter, pushdown_exprs);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to get pushdown expressions. rc=%s", strrc(rc));
@@ -112,7 +111,8 @@ RC PredicatePushdownRewriter::get_exprs_can_pushdown(
       }
 
       if (!*iter) {
-        child_exprs.erase(iter);
+        // 使用 erase 的返回值更新迭代器
+        iter = child_exprs.erase(iter);
       } else {
         ++iter;
       }

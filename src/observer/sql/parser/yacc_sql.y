@@ -119,6 +119,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         L2_DISTANCE
         COSINE_DISTANCE
         INNER_PRODUCT
+        IS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -464,6 +465,9 @@ value:
     |DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
+      if (!$$->is_date_valid()) {
+        $$->reset();
+      }
       free(tmp);
       free($1);
     }
@@ -736,6 +740,9 @@ comp_op:
     | GE { $$ = CompOp::GREAT_EQUAL; }
     | NE { $$ = CompOp::NOT_EQUAL; }
     | LIKE { $$ = CompOp::LIKE; }
+    | NOT LIKE { $$ = CompOp::NOT_LIKE; }
+    | IS { $$ = CompOp::IS; }
+    | IS NOT { $$ = CompOp::NOT_IS; }
     ;
 
 // your code here
