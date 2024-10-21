@@ -40,6 +40,17 @@ struct RelAttrSqlNode
 };
 
 /**
+ * @brief 描述一个relation
+ * @ingroup SQLParser
+ * @author Nelson Boss
+ */
+struct RelationSqlNode
+{
+  std::string name;  ///< relation name
+  std::string alias;
+};
+
+/**
  * @brief 描述比较运算符
  * @ingroup SQLParser
  */
@@ -79,6 +90,12 @@ struct ConditionSqlNode
   Value          right_value;    ///< right-hand side value if right_is_attr = FALSE
 };
 
+struct JoinSqlNode
+{
+  RelationSqlNode relation;  ///< Relation to join with
+  std::vector<ConditionSqlNode> conditions;
+};
+
 /**
  * @brief 描述一个select语句
  * @ingroup SQLParser
@@ -93,7 +110,7 @@ struct ConditionSqlNode
 struct SelectSqlNode
 {
   std::vector<std::unique_ptr<Expression>> expressions;  ///< 查询的字段的表达式
-  std::vector<std::string>                 relations;    ///< 查询的表
+  std::vector<RelationSqlNode>             relations;    ///< 查询的表
   std::vector<ConditionSqlNode>            conditions;   ///< 查询条件，使用AND串联起来多个条件
   std::vector<std::unique_ptr<Expression>> group_by;     ///< group by clause
 };
