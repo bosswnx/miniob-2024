@@ -67,6 +67,8 @@ private:
       std::unique_ptr<Expression> &aggregate_expr, std::vector<std::unique_ptr<Expression>> &bound_expressions);
   RC bind_like_expression(
       std::unique_ptr<Expression> &like_expr, std::vector<std::unique_ptr<Expression>> &bound_expressions);
+  RC bind_vector_distance_expression(
+      std::unique_ptr<Expression> &vector_distance_expr, std::vector<std::unique_ptr<Expression>> &bound_expressions);
 
 private:
   BinderContext &context_;

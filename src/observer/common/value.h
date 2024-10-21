@@ -144,8 +144,8 @@ public:
   string get_string() const;
   bool   get_boolean() const;
   vector<float> get_vector() const;
-
-private:
+  
+  // 这里把下面的 setter 都放到了 public 里面，这样可以直接通过 Value 对象调用这些方法
   void set_int(int val);
   void set_float(float val);
   void set_string(const char *s, int len = 0);

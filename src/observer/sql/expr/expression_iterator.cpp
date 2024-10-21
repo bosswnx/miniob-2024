@@ -68,7 +68,14 @@ RC ExpressionIterator::iterate_child_expr(Expression &expr, function<RC(unique_p
       if (OB_SUCC(rc)) {
         rc = callback(like_expr.pExpr());
       }
-    }
+    } break;
+    case ExprType::VECTOR_DISTANCE_EXPR: {
+      auto &vde = static_cast<VectorDistanceExpr &>(expr);
+      rc                    = callback(vde.left());
+      if (OB_SUCC(rc)) {
+        rc = callback(vde.right());
+      }
+    } break;
 
     case ExprType::NONE:
     case ExprType::STAR:

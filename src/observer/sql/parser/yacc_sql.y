@@ -116,6 +116,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         NOT
         NULL_T
         LIKE
+        L2_DISTANCE
+        COSINE_DISTANCE
+        INNER_PRODUCT
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -597,7 +600,18 @@ expression:
     | '*' {
       $$ = new StarExpr();
     }
-    // your code here
+    | L2_DISTANCE LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::L2_DISTANCE, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
+    }
+    | COSINE_DISTANCE LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::COSINE_DISTANCE, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
+    }
+    | INNER_PRODUCT LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::INNER_PRODUCT, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
+    }
     ;
 
 rel_attr:
