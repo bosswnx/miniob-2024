@@ -52,6 +52,8 @@ enum class ExprType
   IS_NULL       ///< 判断是否为 NULL
 };
 
+std::string expr_type_to_string(ExprType type);
+
 /**
  * @brief 表达式的抽象描述
  * @ingroup Expression
@@ -280,6 +282,7 @@ private:
 class ComparisonExpr : public Expression
 {
 public:
+  ComparisonExpr(CompOp comp, Expression *left, Expression *right);
   ComparisonExpr(CompOp comp, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   virtual ~ComparisonExpr();
 
@@ -475,16 +478,21 @@ private:
 class LikeExpr : public Expression
 {
 public:
-  LikeExpr(CompOp op, std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr);
-  ExprType                     type() const override;
-  AttrType                     value_type() const override;
-  int                          value_length() const override;
+  LikeExpr(bool is_like, Expression *sExpr, Expression *pExpr) : is_like_(is_like), sExpr_(sExpr), pExpr_(pExpr) {}
+  LikeExpr(bool is_like, std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr)
+      : is_like_(is_like), sExpr_(std::move(sExpr)), pExpr_(std::move(pExpr))
+  {}
+  ~LikeExpr() override = default;
+
+  ExprType                     type() const override { return ExprType::LIKE; }
+  AttrType                     value_type() const override { return AttrType::BOOLEANS; }
+  int                          value_length() const override { return sizeof(bool); }
   RC                           get_value(const Tuple &tuple, Value &value) const override;
-  std::unique_ptr<Expression> &sExpr();
-  std::unique_ptr<Expression> &pExpr();
+  std::unique_ptr<Expression> &sExpr() { return sExpr_; }
+  std::unique_ptr<Expression> &pExpr() { return pExpr_; }
 
 private:
-  CompOp                      op_;
+  bool                        is_like_;  // true 表示 LIKE, false 表示 NOT LIKE
   std::unique_ptr<Expression> sExpr_;
   std::unique_ptr<Expression> pExpr_;
 };
@@ -516,7 +524,7 @@ private:
 class IsNullExpr : public Expression
 {
 public:
-  IsNullExpr(CompOp op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
+  IsNullExpr(bool is_null, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   ExprType                     type() const override;
   AttrType                     value_type() const override;
   int                          value_length() const override;
@@ -525,7 +533,7 @@ public:
   std::unique_ptr<Expression> &right();
 
 private:
-  CompOp                      op_;
+  bool                        is_null_;  // true 表示 IS NULL, false 表示 IS NOT NULL
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
 };

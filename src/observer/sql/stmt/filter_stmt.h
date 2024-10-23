@@ -24,47 +24,6 @@ class Db;
 class Table;
 class FieldMeta;
 
-struct FilterObj
-{
-  bool  is_attr;
-  Field field;
-  Value value;
-
-  void init_attr(const Field &field)
-  {
-    is_attr     = true;
-    this->field = field;
-  }
-
-  void init_value(const Value &value)
-  {
-    is_attr     = false;
-    this->value = value;
-  }
-};
-
-class FilterUnit
-{
-public:
-  FilterUnit() = default;
-  ~FilterUnit() {}
-
-  void set_comp(CompOp comp) { comp_ = comp; }
-
-  CompOp comp() const { return comp_; }
-
-  void set_left(const FilterObj &obj) { left_ = obj; }
-  void set_right(const FilterObj &obj) { right_ = obj; }
-
-  const FilterObj &left() const { return left_; }
-  const FilterObj &right() const { return right_; }
-
-private:
-  CompOp    comp_ = CompOp::NO_OP;
-  FilterObj left_;
-  FilterObj right_;
-};
-
 /**
  * @brief Filter/谓词/过滤语句
  * @ingroup Statement
@@ -76,15 +35,8 @@ public:
   virtual ~FilterStmt();
 
 public:
-  const std::vector<FilterUnit *> &filter_units() const { return filter_units_; }
-
-public:
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-      const ConditionSqlNode *conditions, int condition_num, FilterStmt *&stmt);
+      std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt);
 
-  static RC create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-      const ConditionSqlNode &condition, FilterUnit *&filter_unit);
-
-private:
-  std::vector<FilterUnit *> filter_units_;  // 默认当前都是AND关系
+  std::vector<std::unique_ptr<Expression>> conditions_;
 };

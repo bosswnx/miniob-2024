@@ -153,68 +153,53 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
 {
   RC                                  rc = RC::SUCCESS;
   std::vector<unique_ptr<Expression>> cmp_exprs;
-  const std::vector<FilterUnit *>    &filter_units = filter_stmt->filter_units();
-  for (const FilterUnit *filter_unit : filter_units) {
-    const FilterObj &filter_obj_left  = filter_unit->left();
-    const FilterObj &filter_obj_right = filter_unit->right();
+  auto                               &conditions = filter_stmt->conditions_;
+  for (auto &condition : conditions) {
 
-    unique_ptr<Expression> left(filter_obj_left.is_attr
-                                    ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
-                                    : static_cast<Expression *>(new ValueExpr(filter_obj_left.value)));
+    unique_ptr<Expression> cmp_expr(nullptr);
 
-    unique_ptr<Expression> right(filter_obj_right.is_attr
-                                     ? static_cast<Expression *>(new FieldExpr(filter_obj_right.field))
-                                     : static_cast<Expression *>(new ValueExpr(filter_obj_right.value)));
-
-    if (left->value_type() != right->value_type()) {
-      auto left_to_right_cost = implicit_cast_cost(left->value_type(), right->value_type());
-      auto right_to_left_cost = implicit_cast_cost(right->value_type(), left->value_type());
-      if (left_to_right_cost <= right_to_left_cost && left_to_right_cost != INT32_MAX) {
-        ExprType left_type = left->type();
-        auto cast_expr = make_unique<CastExpr>(std::move(left), right->value_type());
-        if (left_type == ExprType::VALUE) {
-          Value left_val;
-          if (OB_FAIL(rc = cast_expr->try_get_value(left_val)))
-          {
-            LOG_WARN("failed to get value from left child", strrc(rc));
-            return rc;
-          }
-          left = make_unique<ValueExpr>(left_val);
-        } else {
-          left = std::move(cast_expr);
-        }
-      } else if (right_to_left_cost < left_to_right_cost && right_to_left_cost != INT32_MAX) {
-        ExprType right_type = right->type();
-        auto cast_expr = make_unique<CastExpr>(std::move(right), left->value_type());
-        if (right_type == ExprType::VALUE) {
-          Value right_val;
-          if (OB_FAIL(rc = cast_expr->try_get_value(right_val)))
-          {
-            LOG_WARN("failed to get value from right child", strrc(rc));
-            return rc;
-          }
-          right = make_unique<ValueExpr>(right_val);
-        } else {
-          right = std::move(cast_expr);
-        }
-
-      } else {
-        rc = RC::UNSUPPORTED;
-        LOG_WARN("unsupported cast from %s to %s", attr_type_to_string(left->value_type()), attr_type_to_string(right->value_type()));
-        return rc;
+    switch (condition->type()) {
+      case ExprType::COMPARISON: {
+        // 先暂时把原本的优化去掉
+        cmp_expr = unique_ptr<ComparisonExpr>(static_cast<ComparisonExpr *>(condition.release()));
+      } break;
+      case ExprType::LIKE: {
+        cmp_expr = unique_ptr<LikeExpr>(static_cast<LikeExpr *>(condition.release()));
+      } break;
+      case ExprType::IS_NULL: {
+        cmp_expr = unique_ptr<IsNullExpr>(static_cast<IsNullExpr *>(condition.release()));
+      } break;
+      default: {
+        LOG_ERROR("invalid condition type, type=%s", expr_type_to_string(condition->type()).c_str());
+        return RC::INVALID_ARGUMENT;
       }
     }
-    // like 和其他比较运算符在语法分析阶段共用一套逻辑,在这里分开
-    Expression *cmp_expr;
-    CompOp      op = filter_unit->comp();
-    if (op == CompOp::LIKE || op == CompOp::NOT_LIKE) {
-      cmp_expr = new LikeExpr(op, std::move(left), std::move(right));
-    } else if (op == CompOp::IS || op == CompOp::NOT_IS) {
-      cmp_expr = new IsNullExpr(op, std::move(left), std::move(right));
-    } else {
-      cmp_expr = new ComparisonExpr(op, std::move(left), std::move(right));
-    }
-    cmp_exprs.emplace_back(cmp_expr);
+    cmp_exprs.emplace_back(std::move(cmp_expr));
+
+    // 以下是原本的优化逻辑，先暂时去掉
+    // if (left_value_type != right_value_type) {
+    //   auto left_to_right_cost = implicit_cast_cost(left_value_type, right_value_type);
+    //   auto right_to_left_cost = implicit_cast_cost(right_value_type, left_value_type);
+    //   if (left_to_right_cost <= right_to_left_cost && left_to_right_cost != INT32_MAX) {
+    //     auto cast_expr = make_unique<CastExpr>(std::move(left_expr), right_value_type);
+    //     if (left_expr->type() == ExprType::VALUE) {
+    //       Value left_val;
+    //       if (OB_FAIL(rc = cast_expr->try_get_value(left_val))) {
+    //         LOG_WARN("failed to get value from left child", strrc(rc));
+    //         return rc;
+    //       }
+    //       left_expr = make_unique<ValueExpr>(left_val);
+    //     } else {
+    //       left_expr = std::move(cast_expr);
+    //     }
+    //   } else if (right_to_left_cost < left_to_right_cost && right_to_left_cost != INT32_MAX) {
+    //     right_expr = make_unique<CastExpr>(std::move(right_expr), left_value_type);
+    //   } else {
+    //     rc = RC::UNSUPPORTED;
+    //     LOG_WARN("unsupported cast from %s to %s", attr_type_to_string(left_value_type),
+    //     attr_type_to_string(right_value_type)); return rc;
+    //   }
+    // }
   }
 
   unique_ptr<PredicateLogicalOperator> predicate_oper;
@@ -227,6 +212,7 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
   return rc;
 }
 
+// 计算转换的代价
 int LogicalPlanGenerator::implicit_cast_cost(AttrType from, AttrType to)
 {
   if (from == to) {
