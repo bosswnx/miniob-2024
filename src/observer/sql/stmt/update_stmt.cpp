@@ -41,7 +41,7 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   for (const auto &[attr, expr] : update.update_infos) {
     auto field_meta = meta.field(attr.c_str());
     if (field_meta == nullptr) {
-      LOG_WARN("field %s not found in table %s", field_meta->name(), table->name());
+      LOG_WARN("field %s not found in table %s", attr.c_str(), table->name());
       return RC::SCHEMA_FIELD_NOT_EXIST;
     }
     field_metas.push_back(*field_meta);
