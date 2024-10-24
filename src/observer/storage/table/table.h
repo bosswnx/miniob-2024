@@ -79,6 +79,9 @@ public:
    */
   RC insert_record(Record &record);
   RC delete_record(const Record &record);
+  /// 更新受影响的列的索引
+  RC update_index(const Record &record, const std::vector<FieldMeta> &affectedFields);
+
   RC delete_record(const RID &rid);
   RC get_record(const RID &rid, Record &record);
 

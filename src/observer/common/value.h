@@ -131,6 +131,17 @@ public:
   const char *data() const;
 
   int      length() const { return length_; }
+
+  /// 复制数据时使用，保证字符串结尾的 \0 也能被复制
+  int data_length() const
+  {
+    if (attr_type_ == AttrType::CHARS) {
+      return length_ + 1;
+    } else {
+      return length_;
+    }
+  }
+
   AttrType attr_type() const { return attr_type_; }
   [[nodiscard]] bool is_null() const { return is_null_; }
   [[nodiscard]] bool is_date_valid() const;

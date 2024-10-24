@@ -218,7 +218,8 @@ public:
   }
 
   /// 用于更新 tuple 的数据，支持将字段更新成 null
-  RC set_cell_at(int index, Value &cell) const
+  /// 传入 data，将在 data 表示的记录上更新
+  RC set_cell_at(int index, Value &cell, char *data = nullptr) const
   {
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
       LOG_WARN("invalid argument. index=%d", index);
@@ -227,10 +228,23 @@ public:
 
     FieldExpr       *field_expr = speces_[index];
     const FieldMeta *field_meta = field_expr->field().meta();
-    memcpy(this->record_->data() + field_meta->offset(), cell.data(), cell.length());
-    if (cell.is_null()) {
-      bitmap->set_bit(field_meta->field_id());  // 设置 null bitmap
+    if (data == nullptr) {
+      memcpy(this->record_->data() + field_meta->offset(), cell.data(), cell.data_length());
+      if (cell.is_null()) {
+        bitmap->set_bit(field_meta->field_id());  // 设置 null bitmap
+      } else {
+        bitmap->clear_bit(field_meta->field_id());
+      }
+    } else {
+      Bitmap new_bitmap(data, null_bitmap_start);
+      memcpy(data + field_meta->offset(), cell.data(), cell.data_length());
+      if (cell.is_null()) {
+        new_bitmap.set_bit(field_meta->field_id());  // 设置 null bitmap
+      } else {
+        new_bitmap.clear_bit(field_meta->field_id());
+      }
     }
+
     return RC::SUCCESS;
   }
 

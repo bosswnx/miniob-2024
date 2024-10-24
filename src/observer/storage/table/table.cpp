@@ -507,6 +507,35 @@ RC Table::delete_record(const Record &record)
   return rc;
 }
 
+RC Table::update_index(const Record &record, const std::vector<FieldMeta> &affectedFields)
+{
+  RC                   rc = RC::SUCCESS;
+  std::vector<Index *> indexNeedUpdate;
+  for (auto index : indexes_) {
+    for (auto field : affectedFields) {
+      if (strcmp(index->field_meta().name(), field.name()) == 0) {
+        indexNeedUpdate.push_back(index);
+        break;
+      }
+    }
+  }
+  for (auto index : indexNeedUpdate) {
+    rc = index->delete_entry(record.data(), &record.rid());
+    if (OB_FAIL(rc)) {
+      LOG_WARN("delete index entry failed: %s", strrc(rc));
+      return rc;
+    }
+  }
+  for (auto index : indexNeedUpdate) {
+    rc = index->insert_entry(record.data(), &record.rid());
+    if (OB_FAIL(rc)) {
+      LOG_WARN("insert index entry failed: %s", strrc(rc));
+      return rc;
+    }
+  }
+  return rc;
+}
+
 RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
 {
   RC rc = RC::SUCCESS;
