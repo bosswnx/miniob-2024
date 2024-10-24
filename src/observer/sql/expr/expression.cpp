@@ -532,16 +532,18 @@ RC ArithmeticExpr::try_get_value(Value &value) const
   Value left_value;
   Value right_value;
 
-  rc = left_->try_get_value(left_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-    return rc;
+  if (left_) {
+    rc = left_->try_get_value(left_value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("failed to get value of left expression. rc=%s", strrc(rc));
+      return rc;
+    }
   }
 
   if (right_) {
     rc = right_->try_get_value(right_value);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+      LOG_ERROR("failed to get value of right expression. rc=%s", strrc(rc));
       return rc;
     }
   }

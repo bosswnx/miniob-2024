@@ -2,17 +2,17 @@
 
 RC UpdatePhysicalOperator::open(Trx *trx)
 {
-  auto& child = children_[0];
-  RC rc = child->open(trx);
+  auto &child = children_[0];
+  RC    rc    = child->open(trx);
   if (OB_FAIL(rc)) {
     LOG_WARN("child operator open failed: %s", strrc(rc));
     return rc;
   }
   while (OB_SUCC(rc = child->next())) {
-    Tuple* tuple_ = child->current_tuple();
-    auto tuple = dynamic_cast<RowTuple*>(tuple_);
+    Tuple *tuple_ = child->current_tuple();
+    auto   tuple  = dynamic_cast<RowTuple *>(tuple_);
     ASSERT(tuple != nullptr, "tuple cannot cast to RowTuple here!");
-    for (size_t i=0; i<exprs_.size(); i++) {
+    for (size_t i = 0; i < exprs_.size(); i++) {
       Value cell;
       rc = exprs_[i]->get_value(*tuple, cell);
       if (OB_FAIL(rc)) {
@@ -25,12 +25,10 @@ RC UpdatePhysicalOperator::open(Trx *trx)
   return RC::SUCCESS;
 }
 
-RC UpdatePhysicalOperator::close(){
+RC UpdatePhysicalOperator::close()
+{
   children_[0]->close();
   return RC::SUCCESS;
 }
 
-RC UpdatePhysicalOperator::next(){
-  return RC::RECORD_EOF;
-}
-
+RC UpdatePhysicalOperator::next() { return RC::RECORD_EOF; }
