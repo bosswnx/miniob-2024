@@ -452,17 +452,30 @@ value:
       $$ = new Value((int)$1);
       @$ = @1;
     }
-    |FLOAT {
+    | 
+    '-' NUMBER {
+      $$ = new Value(-(int)$2);
+      @$ = @2;
+    }
+    | 
+    FLOAT {
       $$ = new Value((float)$1);
       @$ = @1;
     }
-    |SSS {
+    | 
+    '-' FLOAT {
+      $$ = new Value(-(float)$2);
+      @$ = @2;
+    }
+    | 
+    SSS {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
       free(tmp);
       free($1);
     }
-    |DATE {
+    | 
+    DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
       if (!$$->is_date_valid()) {
@@ -471,7 +484,8 @@ value:
       free(tmp);
       free($1);
     }
-    |VECTOR {
+    |
+    VECTOR {
       // 如果以双引号或单引号开头，去掉头尾的引号
       if ($1[0] == '\"' || $1[0] == '\'') {
         char *tmp = common::substr($1,1,strlen($1)-2);
@@ -482,7 +496,8 @@ value:
       }
       free($1);
     }
-    |NULL_T {
+    | 
+    NULL_T {
       $$ = new Value();
       @$ = @1;
     }
@@ -593,7 +608,7 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
     }
     | '-' expression %prec UMINUS {
-      $$ = create_arithmetic_expression(ArithmeticExpr::Type::NEGATIVE, $2, nullptr, sql_string, &@$);
+      $$ = create_arithmetic_expression(ArithmeticExpr::Type::NEGATIVE, nullptr, $2, sql_string, &@$);
     }
     | value {
       $$ = new ValueExpr(*$1);
