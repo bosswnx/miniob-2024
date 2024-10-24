@@ -217,6 +217,23 @@ public:
     return RC::SUCCESS;
   }
 
+  /// 用于更新 tuple 的数据，支持将字段更新成 null
+  RC set_cell_at(int index, Value &cell) const
+  {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+
+    FieldExpr       *field_expr = speces_[index];
+    const FieldMeta *field_meta = field_expr->field().meta();
+    memcpy(this->record_->data() + field_meta->offset(), cell.data(), cell.length());
+    if (cell.is_null()) {
+      bitmap->set_bit(field_meta->field_id());  // 设置 null bitmap
+    }
+    return RC::SUCCESS;
+  }
+
   RC spec_at(int index, TupleCellSpec &spec) const override
   {
     const Field &field = speces_[index]->field();

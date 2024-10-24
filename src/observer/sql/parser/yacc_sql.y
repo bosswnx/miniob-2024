@@ -139,6 +139,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   char *                                     string;
   int                                        number;
   float                                      floats;
+  std::vector<UpdateInfoNode>*               update_info_list;
 }
 
 
@@ -192,6 +193,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
 %type <sql_node>            command_wrapper
+%type <update_info_list>    update_list
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 
@@ -525,19 +527,32 @@ delete_stmt:    /*  delete 语句的语法解析树*/
       free($3);
     }
     ;
+update_list:
+    ID EQ expression COMMA update_list
+    {
+        $$ = $5;
+        $$->emplace_back(std::string($1), $3);
+        free($1);
+    }
+    | ID EQ expression
+    {
+        $$ = new std::vector<UpdateInfoNode>();
+        $$->emplace_back(std::string($1), $3);
+        free($1);
+    }
+    ;
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where 
+    UPDATE ID SET update_list where
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
       $$->update.relation_name = $2;
-      $$->update.attribute_name = $4;
-      $$->update.value = *$6;
-      if ($7 != nullptr) {
-        $$->update.conditions.swap(*$7);
-        delete $7;
+      $$->update.update_infos = *$4;
+      if ($5 != nullptr) {
+        $$->update.conditions.swap(*$5);
+        delete $5;
       }
       free($2);
-      free($4);
+      delete $4;
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
