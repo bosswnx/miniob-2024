@@ -291,6 +291,7 @@ RC PlainCommunicator::write_tuple_result(SqlResult *sql_result)
       }
 
       Value value;
+      // 获取 tuple 的第 i 个 cell 的值，这里开始计算 expression
       rc = tuple->cell_at(i, value);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to get tuple cell value. rc=%s", strrc(rc));

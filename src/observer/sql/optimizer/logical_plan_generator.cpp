@@ -313,8 +313,8 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
     return rc;
   };
 
- bool found_unbound_column = false;
-  function<RC(std::unique_ptr<Expression>&)> find_unbound_column = [&](unique_ptr<Expression> &expr) -> RC {
+  bool                                        found_unbound_column = false;
+  function<RC(std::unique_ptr<Expression> &)> find_unbound_column  = [&](unique_ptr<Expression> &expr) -> RC {
     RC rc = RC::SUCCESS;
     if (expr->type() == ExprType::AGGREGATION) {
       // do nothing
@@ -322,12 +322,11 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
       // do nothing
     } else if (expr->type() == ExprType::FIELD) {
       found_unbound_column = true;
-    }else {
+    } else {
       rc = ExpressionIterator::iterate_child_expr(*expr, find_unbound_column);
     }
     return rc;
   };
-  
 
   for (unique_ptr<Expression> &expression : query_expressions) {
     bind_group_by_expr(expression);

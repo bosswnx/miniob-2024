@@ -63,12 +63,14 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
     return rc;
   }
 
+  // 解析 sql 语句，创建 sqlnode
   rc = parse_stage_.handle_request(sql_event);
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
     return rc;
   }
 
+  // 从 sqlnode 中创建 stmt
   rc = resolve_stage_.handle_request(sql_event);
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do resolve. rc=%s", strrc(rc));
