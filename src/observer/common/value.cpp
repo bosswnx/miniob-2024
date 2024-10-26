@@ -335,7 +335,6 @@ void Value::set_is_null(bool _is_null)
       own_data_                = true;
     } break;
     case AttrType::DATES:
-
     case AttrType::INTS: {
       value_.int_value_ = 0;
       length_           = sizeof(int);

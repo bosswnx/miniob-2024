@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include <algorithm>
+#include <cstdio>
 
 #include "common/log/log.h"
 #include "common/lang/string.h"

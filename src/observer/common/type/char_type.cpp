@@ -20,6 +20,30 @@ int CharType::compare(const Value &left, const Value &right) const
       (void *)left.value_.pointer_value_, left.length_, (void *)right.value_.pointer_value_, right.length_);
 }
 
+RC CharType::max(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = common::compare_string(
+      (void *)left.value_.pointer_value_, left.length_, (void *)right.value_.pointer_value_, right.length_);
+  if (cmp < 0) {
+    result.set_string(right.value_.pointer_value_, right.length_);
+  } else {
+    result.set_string(left.value_.pointer_value_, left.length_);
+  }
+  return RC::SUCCESS;
+}
+
+RC CharType::min(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = common::compare_string(
+      (void *)left.value_.pointer_value_, left.length_, (void *)right.value_.pointer_value_, right.length_);
+  if (cmp < 0) {
+    result.set_string(left.value_.pointer_value_, left.length_);
+  } else {
+    result.set_string(right.value_.pointer_value_, right.length_);
+  }
+  return RC::SUCCESS;
+}
+
 RC CharType::set_value_from_str(Value &val, const string &data) const
 {
   val.set_string(data.c_str());

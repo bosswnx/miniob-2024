@@ -72,6 +72,28 @@ RC VectorType::multiply(const Value &left, const Value &right, Value &result) co
   return RC::SUCCESS;
 }
 
+RC VectorType::max(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = compare(left, right);
+  if (cmp > 0) {
+    result.set_vector(left.get_vector());
+  } else {
+    result.set_vector(right.get_vector());
+  }
+  return RC::SUCCESS;
+}
+
+RC VectorType::min(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = compare(left, right);
+  if (cmp < 0) {
+    result.set_vector(left.get_vector());
+  } else {
+    result.set_vector(right.get_vector());
+  }
+  return RC::SUCCESS;
+}
+
 RC VectorType::set_value_from_str(Value &val, const string &data) const
 {
   val.set_vector(data.c_str());

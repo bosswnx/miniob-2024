@@ -59,6 +59,9 @@ public:
 
   void reset();
 
+  // 与 Value 有关的运算都在这里。
+  // 需要注意的是，最终结果的类型是 result 的类型，而不是 left 或 right 的类型。
+
   static RC add(const Value &left, const Value &right, Value &result)
   {
     // NULL 参与算术运算产生 NULL
@@ -103,6 +106,32 @@ public:
       return RC::SUCCESS;
     }
     return DataType::type_instance(result.attr_type())->negative(value, result);
+  }
+
+  static RC max(const Value &left, const Value &right, Value &result)
+  {
+    if (left.is_null()) {
+      result = right;
+      return RC::SUCCESS;
+    }
+    if (right.is_null()) {
+      result = left;
+      return RC::SUCCESS;
+    }
+    return DataType::type_instance(result.attr_type())->max(left, right, result);
+  }
+
+  static RC min(const Value &left, const Value &right, Value &result)
+  {
+    if (left.is_null()) {
+      result = right;
+      return RC::SUCCESS;
+    }
+    if (right.is_null()) {
+      result = left;
+      return RC::SUCCESS;
+    }
+    return DataType::type_instance(result.attr_type())->min(left, right, result);
   }
 
   static RC cast_to(const Value &value, AttrType to_type, Value &result)

@@ -21,6 +21,28 @@ int DateType::compare(const Value &left, const Value &right) const
   return common::compare_int((void *)&left.value_.int_value_, (void *)&right.value_.int_value_);
 }
 
+RC DateType::max(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = common::compare_int((void *)&left.value_.int_value_, (void *)&right.value_.int_value_);
+  if (cmp > 0) {
+    result.set_int(left.value_.int_value_);
+  } else {
+    result.set_int(right.value_.int_value_);
+  }
+  return RC::SUCCESS;
+}
+
+RC DateType::min(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = common::compare_int((void *)&left.value_.int_value_, (void *)&right.value_.int_value_);
+  if (cmp < 0) {
+    result.set_int(left.value_.int_value_);
+  } else {
+    result.set_int(right.value_.int_value_);
+  }
+  return RC::SUCCESS;
+}
+
 RC DateType::set_value_from_str(Value &val, const string &data) const
 {
   std::string date = data.substr(0, 4) + data.substr(5, 2) + data.substr(8, 2);
