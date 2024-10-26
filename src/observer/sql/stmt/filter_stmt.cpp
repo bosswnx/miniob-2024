@@ -35,7 +35,7 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
       case CompOp::LIKE: {
         conditions_exprs.emplace_back(
             new LikeExpr(true, std::move(condition.left_expr), std::move(condition.right_expr)));
-      }
+      } break;
       case CompOp::NOT_LIKE: {
         conditions_exprs.emplace_back(
             new LikeExpr(false, std::move(condition.left_expr), std::move(condition.right_expr)));
@@ -75,7 +75,7 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
     }
   }
 
-  tmp_stmt->conditions_ = std::move(bound_conditions);
+  tmp_stmt->conditions_.swap(bound_conditions);
 
   stmt = tmp_stmt;
   return rc;

@@ -68,6 +68,15 @@ enum class CompOp
   NO_OP,
 };
 
+enum class AggregateType
+{
+  COUNT,
+  MAX,
+  MIN,
+  AVG,
+  SUM,
+};
+
 /**
  * @brief 表示一个条件比较
  * @ingroup SQLParser

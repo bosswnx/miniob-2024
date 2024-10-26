@@ -59,6 +59,20 @@ RC FloatType::negative(const Value &val, Value &result) const
   return RC::SUCCESS;
 }
 
+RC FloatType::max(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = common::compare_float((void *)&left.value_.float_value_, (void *)&right.value_.float_value_);
+  result.set_float(cmp > 0 ? left.value_.float_value_ : right.value_.float_value_);
+  return RC::SUCCESS;
+}
+
+RC FloatType::min(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = common::compare_float((void *)&left.value_.float_value_, (void *)&right.value_.float_value_);
+  result.set_float(cmp < 0 ? left.value_.float_value_ : right.value_.float_value_);
+  return RC::SUCCESS;
+}
+
 RC FloatType::set_value_from_str(Value &val, const string &data) const
 {
   RC                rc = RC::SUCCESS;

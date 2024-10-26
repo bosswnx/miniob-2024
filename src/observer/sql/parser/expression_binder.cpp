@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include <algorithm>
+#include <cstdio>
 
 #include "common/log/log.h"
 #include "common/lang/string.h"
@@ -89,7 +90,7 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
     } break;
 
     case ExprType::AGGREGATION: {
-      ASSERT(false, "shouldn't be here");
+      return bind_aggregate_expression(expr, bound_expressions);
     } break;
 
     case ExprType::LIKE: {
@@ -383,11 +384,11 @@ RC check_aggregate_expression(AggregateExpr &expression)
   }
 
   // 校验数据类型与聚合类型是否匹配
-  AggregateExpr::Type aggregate_type   = expression.aggregate_type();
+  AggregateType       aggregate_type   = expression.aggregate_type();
   AttrType            child_value_type = child_expression->value_type();
   switch (aggregate_type) {
-    case AggregateExpr::Type::SUM:
-    case AggregateExpr::Type::AVG: {
+    case AggregateType::SUM:
+    case AggregateType::AVG: {
       // 仅支持数值类型
       if (child_value_type != AttrType::INTS && child_value_type != AttrType::FLOATS) {
         LOG_WARN("invalid child value type for aggregate expression: %d", static_cast<int>(child_value_type));
@@ -395,9 +396,9 @@ RC check_aggregate_expression(AggregateExpr &expression)
       }
     } break;
 
-    case AggregateExpr::Type::COUNT:
-    case AggregateExpr::Type::MAX:
-    case AggregateExpr::Type::MIN: {
+    case AggregateType::COUNT:
+    case AggregateType::MAX:
+    case AggregateType::MIN: {
       // 任何类型都支持
     } break;
   }
@@ -426,21 +427,17 @@ RC ExpressionBinder::bind_aggregate_expression(
     return RC::SUCCESS;
   }
 
+  RC rc = RC::SUCCESS;
+
   auto unbound_aggregate_expr = static_cast<UnboundAggregateExpr *>(expr.get());
-  const char *aggregate_name = unbound_aggregate_expr->aggregate_name();
-  AggregateExpr::Type aggregate_type;
-  RC rc = AggregateExpr::type_from_string(aggregate_name, aggregate_type);
-  if (OB_FAIL(rc)) {
-    LOG_WARN("invalid aggregate name: %s", aggregate_name);
-    return rc;
-  }
+  AggregateType aggregate_type         = unbound_aggregate_expr->aggregate_type();
 
   unique_ptr<Expression>        &child_expr = unbound_aggregate_expr->child();
   vector<unique_ptr<Expression>> child_bound_expressions;
 
   // 下面都是对子表达式的特殊处理
   // 如果聚合表达式的子表达式是 * 且聚合类型是 COUNT, 则将子表达式替换为常量 1
-  if (child_expr->type() == ExprType::STAR && aggregate_type == AggregateExpr::Type::COUNT) {
+  if (child_expr->type() == ExprType::STAR && aggregate_type == AggregateType::COUNT) {
     ValueExpr *value_expr = new ValueExpr(Value(1));
     child_expr.reset(value_expr);
   } else {
@@ -516,7 +513,7 @@ RC ExpressionBinder::bind_like_expression(
     pExpr.reset(pBoundedExpr.release());
   }
 
-  bound_expressions.emplace_back(std::move(like_expr));
+  bound_expressions.emplace_back(std::move(expr));
   return RC::SUCCESS;
 }
 
