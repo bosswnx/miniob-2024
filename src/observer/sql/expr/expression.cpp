@@ -20,6 +20,27 @@ See the Mulan PSL v2 for more details. */
 
 using namespace std;
 
+std::string expr_type_to_string(ExprType type)
+{
+  switch (type) {
+    case ExprType::NONE: return "NONE";
+    case ExprType::STAR: return "STAR";
+    case ExprType::UNBOUND_FIELD: return "UNBOUND_FIELD";
+    case ExprType::UNBOUND_AGGREGATION: return "UNBOUND_AGGREGATION";
+    case ExprType::FIELD: return "FIELD";
+    case ExprType::VALUE: return "VALUE";
+    case ExprType::CAST: return "CAST";
+    case ExprType::COMPARISON: return "COMPARISON";
+    case ExprType::CONJUNCTION: return "CONJUNCTION";
+    case ExprType::ARITHMETIC: return "ARITHMETIC";
+    case ExprType::AGGREGATION: return "AGGREGATION";
+    case ExprType::LIKE: return "LIKE";
+    case ExprType::VECTOR_DISTANCE_EXPR: return "VECTOR_DISTANCE_EXPR";
+    case ExprType::IS_NULL: return "IS_NULL";
+    default: return "UNKNOWN";
+  }
+}
+
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const
 {
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
@@ -113,6 +134,10 @@ RC CastExpr::try_get_value(Value &result) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+ComparisonExpr::ComparisonExpr(CompOp comp, Expression *left, Expression *right)
+    : comp_(comp), left_(left), right_(right)
+{}
 
 ComparisonExpr::ComparisonExpr(CompOp comp, unique_ptr<Expression> left, unique_ptr<Expression> right)
     : comp_(comp), left_(std::move(left)), right_(std::move(right))
@@ -308,6 +333,9 @@ bool ArithmeticExpr::equal(const Expression &other) const
 }
 AttrType ArithmeticExpr::value_type() const
 {
+  if (!left_) {
+    return right_->value_type();
+  }
   if (!right_) {
     return left_->value_type();
   }
@@ -347,7 +375,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
     } break;
 
     case Type::NEGATIVE: {
-      Value::negative(left_value, value);
+      Value::negative(right_value, value);
     } break;
 
     default: {
@@ -433,15 +461,19 @@ RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value) const
   Value left_value;
   Value right_value;
 
-  rc = left_->get_value(tuple, left_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-    return rc;
+  if (left_) {
+    rc = left_->get_value(tuple, left_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+      return rc;
+    }
   }
-  rc = right_->get_value(tuple, right_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-    return rc;
+  if (right_) {
+    rc = right_->get_value(tuple, right_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+      return rc;
+    }
   }
   return calc_value(left_value, right_value, value);
 }
@@ -500,16 +532,18 @@ RC ArithmeticExpr::try_get_value(Value &value) const
   Value left_value;
   Value right_value;
 
-  rc = left_->try_get_value(left_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
-    return rc;
+  if (left_) {
+    rc = left_->try_get_value(left_value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("failed to get value of left expression. rc=%s", strrc(rc));
+      return rc;
+    }
   }
 
   if (right_) {
     rc = right_->try_get_value(right_value);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+      LOG_ERROR("failed to get value of right expression. rc=%s", strrc(rc));
       return rc;
     }
   }
@@ -591,16 +625,6 @@ RC AggregateExpr::type_from_string(const char *type_str, AggregateExpr::Type &ty
   }
   return rc;
 }
-
-LikeExpr::LikeExpr(CompOp op, std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr)
-    : op_(op), sExpr_(std::move(sExpr)), pExpr_(std::move(pExpr))
-{}
-
-ExprType LikeExpr::type() const { return ExprType::LIKE; }
-
-AttrType LikeExpr::value_type() const { return AttrType::BOOLEANS; }
-
-int LikeExpr::value_length() const { return sizeof(bool); }
 
 enum class LIKE_RESULT
 {
@@ -729,19 +753,14 @@ RC LikeExpr::get_value(const Tuple &tuple, Value &value) const
   } else {
     value.set_is_null(false);
     bool like = string_like(s.c_str(), p.c_str());
-    if (op_ == CompOp::LIKE) {
+    if (is_like_) {
       value.set_boolean(like);
-    } else if (op_ == CompOp::NOT_LIKE) {
-      value.set_boolean(!like);
     } else {
-      ASSERT(false, "LikeExpr cannot handle CompOp: %d", static_cast<int>(op_));
+      value.set_boolean(!like);
     }
   }
   return RC::SUCCESS;
 }
-
-std::unique_ptr<Expression> &LikeExpr::sExpr() { return sExpr_; }
-std::unique_ptr<Expression> &LikeExpr::pExpr() { return pExpr_; }
 
 // VectorDistanceExpr
 
@@ -816,8 +835,9 @@ RC VectorDistanceExpr::get_value(const Tuple &tuple, Value &value) const {
 
 std::unique_ptr<Expression> &VectorDistanceExpr::left() { return left_; }
 std::unique_ptr<Expression> &VectorDistanceExpr::right() { return right_; }
-IsNullExpr::IsNullExpr(CompOp op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
-    : op_(op), left_(std::move(left)), right_(std::move(right)){};
+IsNullExpr::IsNullExpr(bool is_null, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
+    : is_null_(is_null), left_(std::move(left)), right_(std::move(right))
+{}
 ExprType IsNullExpr::type() const { return ExprType::IS_NULL; }
 AttrType IsNullExpr::value_type() const { return AttrType::BOOLEANS; }
 int      IsNullExpr::value_length() const { return sizeof(bool); }
@@ -834,12 +854,10 @@ RC       IsNullExpr::get_value(const Tuple &tuple, Value &value) const
     return rc;
   }
   bool is = left_value.is_null();
-  if (op_ == CompOp::IS) {
+  if (is_null_) {
     value.set_boolean(is);
-  } else if (op_ == CompOp::NOT_IS) {
-    value.set_boolean(!is);
   } else {
-    ASSERT(false, "IsNullExpr cannot handle CompOp: %d", static_cast<int>(op_));
+    value.set_boolean(!is);
   }
   return RC::SUCCESS;
 }

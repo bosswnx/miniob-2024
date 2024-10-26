@@ -143,6 +143,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   char *                                     string;
   int                                        number;
   float                                      floats;
+  std::vector<UpdateInfoNode>*               update_info_list;
 }
 
 
@@ -197,6 +198,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
 %type <sql_node>            command_wrapper
+%type <update_info_list>    update_list
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 
@@ -457,17 +459,30 @@ value:
       $$ = new Value((int)$1);
       @$ = @1;
     }
-    |FLOAT {
+    | 
+    '-' NUMBER {
+      $$ = new Value(-(int)$2);
+      @$ = @2;
+    }
+    | 
+    FLOAT {
       $$ = new Value((float)$1);
       @$ = @1;
     }
-    |SSS {
+    | 
+    '-' FLOAT {
+      $$ = new Value(-(float)$2);
+      @$ = @2;
+    }
+    | 
+    SSS {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
       free(tmp);
       free($1);
     }
-    |DATE {
+    | 
+    DATE {
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = Value::from_date(tmp);
       if (!$$->is_date_valid()) {
@@ -476,7 +491,8 @@ value:
       free(tmp);
       free($1);
     }
-    |VECTOR {
+    |
+    VECTOR {
       // 如果以双引号或单引号开头，去掉头尾的引号
       if ($1[0] == '\"' || $1[0] == '\'') {
         char *tmp = common::substr($1,1,strlen($1)-2);
@@ -487,7 +503,8 @@ value:
       }
       free($1);
     }
-    |NULL_T {
+    | 
+    NULL_T {
       $$ = new Value();
       @$ = @1;
     }
@@ -515,19 +532,32 @@ delete_stmt:    /*  delete 语句的语法解析树*/
       free($3);
     }
     ;
+update_list:
+    ID EQ expression COMMA update_list
+    {
+        $$ = $5;
+        $$->emplace_back(std::string($1), $3);
+        free($1);
+    }
+    | ID EQ expression
+    {
+        $$ = new std::vector<UpdateInfoNode>();
+        $$->emplace_back(std::string($1), $3);
+        free($1);
+    }
+    ;
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where 
+    UPDATE ID SET update_list where
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
       $$->update.relation_name = $2;
-      $$->update.attribute_name = $4;
-      $$->update.value = *$6;
-      if ($7 != nullptr) {
-        $$->update.conditions.swap(*$7);
-        delete $7;
+      $$->update.update_infos = *$4;
+      if ($5 != nullptr) {
+        $$->update.conditions.swap(*$5);
+        delete $5;
       }
       free($2);
-      free($4);
+      delete $4;
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
@@ -616,7 +646,7 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
     }
     | '-' expression %prec UMINUS {
-      $$ = create_arithmetic_expression(ArithmeticExpr::Type::NEGATIVE, $2, nullptr, sql_string, &@$);
+      $$ = create_arithmetic_expression(ArithmeticExpr::Type::NEGATIVE, nullptr, $2, sql_string, &@$);
     }
     | value {
       $$ = new ValueExpr(*$1);
@@ -747,63 +777,22 @@ condition_list:
     }
     | condition {
       $$ = new std::vector<ConditionSqlNode>;
-      $$->emplace_back(*$1);
+      $$->push_back(std::move(*$1));
       delete $1;
     }
     | condition AND condition_list {
       $$ = $3;
-      $$->emplace_back(*$1);
+      $$->push_back(std::move(*$1));
       delete $1;
     }
     ;
 condition:
-    rel_attr comp_op value
+    expression comp_op expression
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 1;
-      $$->left_attr = *$1;
-      $$->right_is_attr = 0;
-      $$->right_value = *$3;
-      $$->comp = $2;
-
-      delete $1;
-      delete $3;
-    }
-    | value comp_op value 
-    {
-      $$ = new ConditionSqlNode;
-      $$->left_is_attr = 0;
-      $$->left_value = *$1;
-      $$->right_is_attr = 0;
-      $$->right_value = *$3;
-      $$->comp = $2;
-
-      delete $1;
-      delete $3;
-    }
-    | rel_attr comp_op rel_attr
-    {
-      $$ = new ConditionSqlNode;
-      $$->left_is_attr = 1;
-      $$->left_attr = *$1;
-      $$->right_is_attr = 1;
-      $$->right_attr = *$3;
-      $$->comp = $2;
-
-      delete $1;
-      delete $3;
-    }
-    | value comp_op rel_attr
-    {
-      $$ = new ConditionSqlNode;
-      $$->left_is_attr = 0;
-      $$->left_value = *$1;
-      $$->right_is_attr = 1;
-      $$->right_attr = *$3;
-      $$->comp = $2;
-
-      delete $1;
-      delete $3;
+      $$->left_expr = std::unique_ptr<Expression>($1);
+      $$->right_expr = std::unique_ptr<Expression>($3);
+      $$->comp_op = $2;
     }
     ;
 

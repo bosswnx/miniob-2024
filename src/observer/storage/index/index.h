@@ -42,6 +42,8 @@ public:
 
   const IndexMeta &index_meta() const { return index_meta_; }
 
+  const FieldMeta &field_meta() const { return field_meta_; }
+
   /**
    * @brief 插入一条数据
    *

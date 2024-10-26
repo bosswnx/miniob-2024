@@ -48,7 +48,7 @@ int page_record_capacity(int page_size, int record_size, int fixed_size)
 {
   // (record_capacity * record_size) + record_capacity/8 + 1 <= (page_size - fix_size)
   // ==> record_capacity = ((page_size - fix_size) - 1) / (record_size + 0.125)
-  return (int)((page_size - PAGE_HEADER_SIZE - fixed_size - 1) / (record_size + 0.125));
+  return static_cast<int>((page_size - PAGE_HEADER_SIZE - fixed_size - 1) / (record_size + 0.125));
 }
 
 /**
@@ -68,8 +68,8 @@ string PageHeader::to_string() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-RecordPageIterator::RecordPageIterator() {}
-RecordPageIterator::~RecordPageIterator() {}
+RecordPageIterator::RecordPageIterator() = default;
+RecordPageIterator::~RecordPageIterator() = default;
 
 void RecordPageIterator::init(RecordPageHandler *record_page_handler, SlotNum start_slot_num /*=0*/)
 {
@@ -122,7 +122,7 @@ RC RecordPageHandler::init(DiskBufferPool &buffer_pool, LogHandler &log_handler,
   disk_buffer_pool_ = &buffer_pool;
 
   rw_mode_     = mode;
-  page_header_ = (PageHeader *)(data);
+  page_header_ = reinterpret_cast<PageHeader *>(data);
   bitmap_      = data + PAGE_HEADER_SIZE;
 
   (void)log_handler_.init(log_handler, buffer_pool.id(), page_header_->record_real_size, storage_format_);
@@ -149,7 +149,7 @@ RC RecordPageHandler::recover_init(DiskBufferPool &buffer_pool, PageNum page_num
   frame_->write_latch();
   disk_buffer_pool_ = &buffer_pool;
   rw_mode_          = ReadWriteMode::READ_WRITE;
-  page_header_      = (PageHeader *)(data);
+  page_header_      = reinterpret_cast<PageHeader *>(data);
   bitmap_           = data + PAGE_HEADER_SIZE;
 
   buffer_pool.recover_page(page_num);
@@ -201,7 +201,7 @@ RC RecordPageHandler::init_empty_page(
     }
   }
 
-  rc = log_handler_.init_new_page(frame_, page_num, span((const char *)column_index, column_num * sizeof(int)));
+  rc = log_handler_.init_new_page(frame_, page_num, span(reinterpret_cast<const char *>(column_index), column_num * sizeof(int)));
   if (OB_FAIL(rc)) {
     LOG_ERROR("Failed to init empty page: write log failed. page_num:record_size %d:%d. rc=%s", 
               page_num, record_size, strrc(rc));
@@ -407,7 +407,7 @@ RC RowRecordPageHandler::get_record(const RID &rid, Record &record)
 PageNum RecordPageHandler::get_page_num() const
 {
   if (nullptr == page_header_) {
-    return (PageNum)(-1);
+    return static_cast<PageNum>(-1);
   }
   return frame_->page_num();
 }

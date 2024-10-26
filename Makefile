@@ -5,11 +5,7 @@ build: format
 env:
 	@bash build.sh init
 
-run_debug: build
-	@rm -rf miniob
-	@./build_debug/bin/observer -f ./etc/observer.ini -P cli
-
-run_release: build
+run: build
 	@rm -rf miniob
 	@./build/bin/observer -f ./etc/observer.ini -P cli
 
@@ -21,5 +17,8 @@ clean:
 
 format:
 	git clang-format --force --extensions cpp,h || true
+
+gen_parser:
+	@cd src/observer/sql/parser && ./gen_parser.sh
 
 .PHONY: build env run help clean gen_parser format

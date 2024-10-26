@@ -80,11 +80,10 @@ QUOTE            [\'\"]
 {WHITE_SAPCE}                                        // ignore whitespace
 \n                                                   ;
 
-[\-]?{DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
-[\-]?{DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
+{DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);  // number 不要考虑负数，而是通过 yacc 识别 expression 前的负号来处理
+{DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
 \"\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\]\" yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
 \'\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\]\' yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
-\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\] yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
 \[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\] yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
 \"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\"          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
 \'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\'          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);

@@ -879,7 +879,7 @@ def __init_options():
   realpath = os.path.realpath(__file__)
   current_path = os.path.dirname(realpath)
   if not options.work_dir:
-    options.work_dir = tempfile.gettempdir() + '/miniob'
+    options.work_dir = tempfile.gettempdir() + '/miniob_nelson'
     _logger.info('use %s as work directory', options.work_dir)
   if not options.project_dir:
     options.project_dir = os.path.realpath(current_path + '/../..')
@@ -1023,7 +1023,7 @@ def compile(work_dir: str, build_dir: str, cmake_args: str, make_args: str, rebu
   make_command = ["make", "--silent", "-C", build_path]
   if isinstance(make_args, str):
     if not make_args:
-      make_command.append('-j4')
+      make_command.append('-j40')
     else:
       args = make_args.split(';')
       for arg in args:
