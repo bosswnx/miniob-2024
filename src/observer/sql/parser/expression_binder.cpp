@@ -516,7 +516,7 @@ RC ExpressionBinder::bind_like_expression(
     pExpr.reset(pBoundedExpr.release());
   }
 
-  bound_expressions.emplace_back(std::move(like_expr));
+  bound_expressions.emplace_back(std::move(expr));
   return RC::SUCCESS;
 }
 
