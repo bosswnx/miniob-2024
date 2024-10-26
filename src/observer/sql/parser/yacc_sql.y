@@ -582,16 +582,17 @@ select_stmt:        /*  select 语句的语法解析树*/
         for (auto &join : *$5) {
           $$->selection.relations.push_back(join.relation);
           for (auto &condition : join.conditions) {
-            $$->selection.conditions.emplace_back(condition);
+            $$->selection.conditions.emplace_back(std::move(condition));
           }
         }
         // delete $5; // TODO(Soulter): free test
       }
 
+      // where
       if ($6 != nullptr) {
         // $$->selection.conditions.swap(*$6);
         for (auto &condition : *$6) {
-          $$->selection.conditions.emplace_back(condition);
+          $$->selection.conditions.emplace_back(std::move(condition));
         }
         std::reverse($$->selection.conditions.begin(), $$->selection.conditions.end());
         delete $6;
@@ -750,14 +751,12 @@ join_list:
       JoinSqlNode join1;
       join1.relation = *$2;
       delete $2;
-      /*join1.conditions.swap(*$4); */
-      /*join1.conditions.emplace_back(*$4); */
       // reverse
       std::reverse($4->begin(), $4->end());
       for (auto &condition : *$4) {
-        join1.conditions.emplace_back(condition);
+        join1.conditions.emplace_back(std::move(condition));
       }
-      $$->emplace_back(join1);
+      $$->emplace_back(std::move(join1));
     }
     ;
 
