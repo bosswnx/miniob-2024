@@ -163,6 +163,10 @@ public:
     if (rc != RC::SUCCESS) {
       return rc;
     }
+    // 除法运算结果类型为 FLOATS
+    if (result.attr_type() == AttrType::INTS) {
+      result.set_type(AttrType::FLOATS);
+    }
     return DataType::type_instance(result.attr_type())->divide(left, right, result);
   }
 
