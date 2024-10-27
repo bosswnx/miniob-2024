@@ -36,8 +36,8 @@ public:
   Tuple *current_tuple() override;
 
 private:
-  RC left_next();   //! 左表遍历下一条数据
   RC right_next();  //! 右表遍历下一条数据，如果上一轮结束了就重新开始新的一轮
+  RC load_left_block();  //! 加载左表的数据块
 
 private:
   Trx *trx_ = nullptr;
@@ -48,6 +48,10 @@ private:
   Tuple            *left_tuple_  = nullptr;
   Tuple            *right_tuple_ = nullptr;
   JoinedTuple       joined_tuple_;         //! 当前关联的左右两个tuple
-  bool              round_done_   = true;  //! 右表遍历的一轮是否结束
+  // bool              round_done_   = true;  //! 右表遍历的一轮是否结束
   bool              right_closed_ = true;  //! 右表算子是否已经关闭
+
+  std::vector<Tuple*> left_block_;
+  size_t               left_block_index_ = 0;
+  size_t               left_block_size_  = 128;
 };

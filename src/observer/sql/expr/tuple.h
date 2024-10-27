@@ -175,6 +175,23 @@ public:
     speces_.clear();
   }
 
+  // copy
+  RowTuple(RowTuple &other)
+  {
+    for (FieldExpr *spec : speces_) {
+      delete spec;
+    }
+    speces_.clear();
+    for (FieldExpr *spec : other.speces_) {
+      speces_.push_back(new FieldExpr(*spec));
+    }
+    table_ = other.table_;
+    null_bitmap_start = other.null_bitmap_start;
+    auto *record = new Record(other.record());
+    record_ = record;
+    bitmap = std::make_unique<Bitmap>(record_->data() + null_bitmap_start, speces_.size());
+  }
+
   void set_record(Record *record)
   {
     this->record_ = record;
@@ -447,6 +464,13 @@ public:
 
   void set_left(Tuple *left) { left_ = left; }
   void set_right(Tuple *right) { right_ = right; }
+
+  // copy
+  JoinedTuple(JoinedTuple &other)
+  {
+    left_  = new RowTuple(static_cast<RowTuple &>(*other.left_));
+    right_ = new RowTuple(static_cast<RowTuple &>(*other.right_));
+  }
 
   int cell_num() const override { return left_->cell_num() + right_->cell_num(); }
 
