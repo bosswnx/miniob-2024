@@ -73,6 +73,6 @@ RC DateType::to_string(const Value &val, string &result) const
   int year  = val.value_.int_value_ / 10000;
   int month = (val.value_.int_value_ / 100) % 100;
   int day   = val.value_.int_value_ % 100;
-  result    = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+  result    = std::to_string(year) + "-" + (month < 10 ? "0" : "") + std::to_string(month) + "-" + (day < 10 ? "0" : "") + std::to_string(day);
   return RC::SUCCESS;
 }
