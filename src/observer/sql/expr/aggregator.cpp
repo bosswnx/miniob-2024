@@ -25,7 +25,11 @@ RC SumAggregator::accumulate(const Value &value)
   ASSERT(value.attr_type() == value_.attr_type(), "type mismatch. value type: %s, value_.type: %s", 
         attr_type_to_string(value.attr_type()), attr_type_to_string(value_.attr_type()));
 
-  Value::add(value, value_, value_);
+  RC rc = Value::add(value, value_, value_);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to add value. rc=%s", strrc(rc));
+    return rc;
+  }
   return RC::SUCCESS;
 }
 
@@ -46,7 +50,13 @@ RC AvgAggregator::accumulate(const Value &value)
   ASSERT(value.attr_type() == value_.attr_type(), "type mismatch. value type: %s, value_.type: %s", 
         attr_type_to_string(value.attr_type()), attr_type_to_string(value_.attr_type()));
 
-  Value::add(value, value_, value_);
+  Value sum_value;
+  RC    rc = Value::add(value, value_, sum_value);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to add value. rc=%s", strrc(rc));
+    return rc;
+  }
+  value_ = sum_value;
   count_++;
   return RC::SUCCESS;
 }
@@ -72,7 +82,7 @@ RC CountAggregator::accumulate(const Value &value)
 
 RC CountAggregator::evaluate(Value &result)
 {
-  result = Value(count_);
+  result.set_int(count_);
   return RC::SUCCESS;
 }
 
@@ -83,7 +93,13 @@ RC MaxAggregator::accumulate(const Value &value)
     return RC::SUCCESS;
   }
 
-  Value::max(value, value_, value_);
+  Value result;
+  RC    rc = Value::max(value, value_, result);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to max value. rc=%s", strrc(rc));
+    return rc;
+  }
+  value_ = result;
   return RC::SUCCESS;
 }
 
@@ -95,7 +111,13 @@ RC MaxAggregator::evaluate(Value &result)
 
 RC MinAggregator::accumulate(const Value &value)
 {
-  Value::min(value, value_, value_);
+  Value result;
+  RC    rc = Value::min(value, value_, result);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to min value. rc=%s", strrc(rc));
+    return rc;
+  }
+  value_ = result;
   return RC::SUCCESS;
 }
 

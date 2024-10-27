@@ -59,15 +59,70 @@ public:
 
   void reset();
 
+  // 判断并设置二元运算结果的类型：add, subtract, multiply, divide, max, min
+  // 注意：这里没有处理 NULL 的情况，NULL 的情况在每个运算中单独处理，
+  // 算数运算中 NULL 参与运算结果为 NULL，max 和 min 中一方为 NULL 结果为另一方
+  static RC set_result_type(const Value &left, const Value &right, Value &result)
+  {
+    switch (left.attr_type()) {
+      case AttrType::INTS:
+        switch (right.attr_type()) {
+          case AttrType::INTS:
+          case AttrType::BOOLEANS: result.set_type(AttrType::INTS); break;
+          case AttrType::FLOATS: result.set_type(AttrType::FLOATS); break;
+          default: return RC::VALUE_TYPE_MISMATCH;
+        }
+        break;
+      case AttrType::FLOATS:
+        switch (right.attr_type()) {
+          case AttrType::INTS:
+          case AttrType::BOOLEANS:
+          case AttrType::FLOATS: result.set_type(AttrType::FLOATS); break;
+          default: return RC::VALUE_TYPE_MISMATCH;
+        }
+        break;
+      case AttrType::CHARS:
+        switch (right.attr_type()) {
+          case AttrType::CHARS: result.set_type(AttrType::CHARS); break;
+          default: return RC::VALUE_TYPE_MISMATCH;
+        }
+        break;
+      case AttrType::BOOLEANS:
+        switch (right.attr_type()) {
+          case AttrType::INTS: result.set_type(AttrType::INTS); break;
+          case AttrType::FLOATS: result.set_type(AttrType::FLOATS); break;
+          default: return RC::VALUE_TYPE_MISMATCH;
+        }
+        break;
+      case AttrType::DATES:
+        switch (right.attr_type()) {
+          case AttrType::DATES: result.set_type(AttrType::DATES); break;
+          default: return RC::VALUE_TYPE_MISMATCH;
+        }
+        break;
+      case AttrType::VECTORS:
+        switch (right.attr_type()) {
+          case AttrType::VECTORS: result.set_type(AttrType::VECTORS); break;
+          default: return RC::VALUE_TYPE_MISMATCH;
+        }
+        break;
+      default: return RC::VALUE_TYPE_MISMATCH;
+    }
+    return RC::SUCCESS;
+  }
+
   // 与 Value 有关的运算都在这里。
-  // 需要注意的是，最终结果的类型是 result 的类型，而不是 left 或 right 的类型。
+  // 需要先调用 set_result_type 设置结果类型，再调用 DataType 的运算方法
 
   static RC add(const Value &left, const Value &right, Value &result)
   {
-    // NULL 参与算术运算产生 NULL
     if (left.is_null() || right.is_null()) {
       result.set_is_null(true);
       return RC::SUCCESS;
+    }
+    RC rc = set_result_type(left, right, result);
+    if (rc != RC::SUCCESS) {
+      return rc;
     }
     return DataType::type_instance(result.attr_type())->add(left, right, result);
   }
@@ -78,6 +133,10 @@ public:
       result.set_is_null(true);
       return RC::SUCCESS;
     }
+    RC rc = set_result_type(left, right, result);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     return DataType::type_instance(result.attr_type())->subtract(left, right, result);
   }
 
@@ -87,6 +146,10 @@ public:
       result.set_is_null(true);
       return RC::SUCCESS;
     }
+    RC rc = set_result_type(left, right, result);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     return DataType::type_instance(result.attr_type())->multiply(left, right, result);
   }
 
@@ -95,6 +158,10 @@ public:
     if (left.is_null() || right.is_null()) {
       result.set_is_null(true);
       return RC::SUCCESS;
+    }
+    RC rc = set_result_type(left, right, result);
+    if (rc != RC::SUCCESS) {
+      return rc;
     }
     return DataType::type_instance(result.attr_type())->divide(left, right, result);
   }
@@ -118,6 +185,10 @@ public:
       result = left;
       return RC::SUCCESS;
     }
+    RC rc = set_result_type(left, right, result);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     return DataType::type_instance(result.attr_type())->max(left, right, result);
   }
 
@@ -130,6 +201,10 @@ public:
     if (right.is_null()) {
       result = left;
       return RC::SUCCESS;
+    }
+    RC rc = set_result_type(left, right, result);
+    if (rc != RC::SUCCESS) {
+      return rc;
     }
     return DataType::type_instance(result.attr_type())->min(left, right, result);
   }

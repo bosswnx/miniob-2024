@@ -25,9 +25,9 @@ RC DateType::max(const Value &left, const Value &right, Value &result) const
 {
   int cmp = common::compare_int((void *)&left.value_.int_value_, (void *)&right.value_.int_value_);
   if (cmp > 0) {
-    result.set_int(left.value_.int_value_);
+    result.set_date(left.value_.int_value_);
   } else {
-    result.set_int(right.value_.int_value_);
+    result.set_date(right.value_.int_value_);
   }
   return RC::SUCCESS;
 }
@@ -36,9 +36,9 @@ RC DateType::min(const Value &left, const Value &right, Value &result) const
 {
   int cmp = common::compare_int((void *)&left.value_.int_value_, (void *)&right.value_.int_value_);
   if (cmp < 0) {
-    result.set_int(left.value_.int_value_);
+    result.set_date(left.value_.int_value_);
   } else {
-    result.set_int(right.value_.int_value_);
+    result.set_date(right.value_.int_value_);
   }
   return RC::SUCCESS;
 }
@@ -46,7 +46,7 @@ RC DateType::min(const Value &left, const Value &right, Value &result) const
 RC DateType::set_value_from_str(Value &val, const string &data) const
 {
   std::string date = data.substr(0, 4) + data.substr(5, 2) + data.substr(8, 2);
-  val.set_int(atoi(date.c_str()));
+  val.set_date(atoi(date.c_str()));
   return RC::SUCCESS;
 }
 
@@ -70,8 +70,9 @@ int DateType::cast_cost(AttrType type)
 // 将 YYYYMMDD 格式的时间转换为 YYYY-MM-DD 格式
 RC DateType::to_string(const Value &val, string &result) const
 {
-  stringstream ss;
-  ss << val.value_.int_value_;
-  result = ss.str().substr(0, 4) + "-" + ss.str().substr(4, 2) + "-" + ss.str().substr(6, 2);
+  int year  = val.value_.int_value_ / 10000;
+  int month = (val.value_.int_value_ / 100) % 100;
+  int day   = val.value_.int_value_ % 100;
+  result    = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
   return RC::SUCCESS;
 }
