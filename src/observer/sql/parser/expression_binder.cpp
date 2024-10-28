@@ -201,6 +201,10 @@ RC ExpressionBinder::bind_field_expression(
 RC ExpressionBinder::bind_value_expression(
     unique_ptr<Expression> &value_expr, vector<unique_ptr<Expression>> &bound_expressions)
 {
+  // 在这里检查日期是否合法
+  if (value_expr->value_type() == AttrType::UNDEFINED) {
+    return RC::VARIABLE_NOT_VALID;
+  }
   bound_expressions.emplace_back(std::move(value_expr));
   return RC::SUCCESS;
 }
