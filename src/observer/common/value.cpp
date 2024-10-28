@@ -23,7 +23,6 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 
-Value::Value() : is_null_(true) {}
 
 Value::Value(int val) { set_int(val); }
 
@@ -33,6 +32,12 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+Value Value::NullValue()
+{
+  Value value;
+  value.is_null_ = true;
+  return value;
+}
 // 从 YYYY-MM-DD 格式的日期字符串创建 Value
 // 这个阶段不检查日期的合法性
 Value *Value::from_date(const char *s)

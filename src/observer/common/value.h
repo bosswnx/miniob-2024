@@ -36,8 +36,8 @@ public:
   friend class CharType;
   friend class DateType;
   friend class VectorType;
-  /// 构造NULL
-  Value();
+  /// 默认构造非空的Value
+  Value() = default;
 
   ~Value() { reset(); }
 
@@ -47,6 +47,10 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+
+
+  /// 构造类型未定义的 NULL
+  static Value NullValue();
 
   static Value *from_date(const char *s);
   static Value *from_vector(const char *s);
