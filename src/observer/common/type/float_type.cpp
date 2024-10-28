@@ -18,6 +18,13 @@ See the Mulan PSL v2 for more details. */
 
 int FloatType::compare(const Value &left, const Value &right) const
 {
+  if (left.attr_type() == AttrType::FLOATS && right.attr_type() == AttrType::CHARS) {
+    float this_value = left.value_.float_value_;
+    float another_value = common::db_str_to_float(right.value_.pointer_value_);
+    return common::compare_float((void *)&this_value, (void *)&another_value);
+  }
+  
+
   ASSERT(left.attr_type() == AttrType::FLOATS, "left type is not integer");
   ASSERT(right.attr_type() == AttrType::INTS || right.attr_type() == AttrType::FLOATS, "right type is not numeric");
   float left_val  = left.get_float();
