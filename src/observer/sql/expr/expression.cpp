@@ -41,6 +41,19 @@ std::string expr_type_to_string(ExprType type)
   }
 }
 
+bool UnboundFieldExpr::equal(const Expression &other) const
+{
+  if (this == &other) {
+    return true;
+  }
+  if (other.type() != ExprType::UNBOUND_FIELD) {
+    return false;
+  }
+  const auto &other_field_expr = static_cast<const UnboundFieldExpr &>(other);
+  return strcmp(table_name(), other_field_expr.table_name()) == 0 &&
+         strcmp(field_name(), other_field_expr.field_name()) == 0;
+}
+
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const
 {
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);

@@ -167,6 +167,8 @@ public:
 
   virtual ~UnboundFieldExpr() = default;
 
+  bool equal(const Expression &other) const override;
+
   ExprType type() const override { return ExprType::UNBOUND_FIELD; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
 

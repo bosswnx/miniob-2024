@@ -63,6 +63,34 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     table_map.insert({table_name, table});
   }
 
+  // 如果有聚合表达式，检查非聚合表达式是否在 group by 语句中
+  // 目前只能判断简单的情况，无法判断嵌套的聚合表达式
+  bool has_aggregation = false;
+  for (unique_ptr<Expression> &expression : select_sql.expressions) {
+    if (expression->type() == ExprType::UNBOUND_AGGREGATION) {
+      has_aggregation = true;
+      break;
+    }
+  }
+  if (has_aggregation) {
+    for (unique_ptr<Expression> &select_expr : select_sql.expressions) {
+      if (select_expr->type() == ExprType::UNBOUND_AGGREGATION) {
+        continue;
+      }
+      bool found = false;
+      for (unique_ptr<Expression> &group_by_expr : select_sql.group_by) {
+        if (select_expr->equal(*group_by_expr)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        LOG_WARN("non-aggregation expression found in select statement but not in group by statement");
+        return RC::INVALID_ARGUMENT;
+      }
+    }
+  }
+
   // 接下来是绑定表达式，指的是将表达式中的字段和 table 关联起来
 
   // collect query fields in `select` statement
