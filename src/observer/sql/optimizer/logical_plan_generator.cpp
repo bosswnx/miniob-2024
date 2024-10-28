@@ -320,7 +320,7 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
       // do nothing
     } else if (expr->pos() != -1) {
       // do nothing
-    } else if (expr->type() == ExprType::FIELD) {
+    } else if (expr->type() == ExprType::UNBOUND_FIELD || expr->type() == ExprType::UNBOUND_AGGREGATION) {
       found_unbound_column = true;
     } else {
       rc = ExpressionIterator::iterate_child_expr(*expr, find_unbound_column);
