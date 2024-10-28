@@ -174,8 +174,8 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
       case ExprType::LIKE: {
         cmp_expr = unique_ptr<LikeExpr>(static_cast<LikeExpr *>(condition.release()));
       } break;
-      case ExprType::IS_NULL: {
-        cmp_expr = unique_ptr<IsNullExpr>(static_cast<IsNullExpr *>(condition.release()));
+      case ExprType::IS: {
+        cmp_expr = unique_ptr<IsExpr>(static_cast<IsExpr *>(condition.release()));
       } break;
       default: {
         LOG_ERROR("invalid condition type, type=%s", expr_type_to_string(condition->type()).c_str());

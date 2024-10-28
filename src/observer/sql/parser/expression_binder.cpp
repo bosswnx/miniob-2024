@@ -101,8 +101,8 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
       return bind_vector_distance_expression(expr, bound_expressions);
     } break;
 
-    case ExprType::IS_NULL: {
-      return bind_is_null_expression(expr, bound_expressions);
+    case ExprType::IS: {
+      return bind_is_expression(expr, bound_expressions);
     } break;
 
     default: {
@@ -199,13 +199,13 @@ RC ExpressionBinder::bind_field_expression(
 }
 
 RC ExpressionBinder::bind_value_expression(
-    unique_ptr<Expression> &value_expr, vector<unique_ptr<Expression>> &bound_expressions)
+    unique_ptr<Expression> &expr, vector<unique_ptr<Expression>> &bound_expressions)
 {
-  // 在这里检查日期是否合法
+  ValueExpr *value_expr = static_cast<ValueExpr *>(expr.get());
   if (value_expr->value_type() == AttrType::UNDEFINED) {
-    return RC::VARIABLE_NOT_VALID;
+    return RC::INVALID_ARGUMENT;
   }
-  bound_expressions.emplace_back(std::move(value_expr));
+  bound_expressions.emplace_back(std::move(expr));
   return RC::SUCCESS;
 }
 
@@ -569,20 +569,28 @@ RC ExpressionBinder::bind_vector_distance_expression(
   return RC::SUCCESS;
 }
 
-RC ExpressionBinder::bind_is_null_expression(
-    std::unique_ptr<Expression> &is_null_expr, std::vector<std::unique_ptr<Expression>> &bound_expressions)
+RC ExpressionBinder::bind_is_expression(
+    std::unique_ptr<Expression> &expr, std::vector<std::unique_ptr<Expression>> &bound_expressions)
 {
-  if (nullptr == is_null_expr) {
+  if (nullptr == expr) {
     return RC::SUCCESS;
   }
 
-  auto like_expr = static_cast<IsNullExpr *>(is_null_expr.get());
+  auto is_expr = static_cast<IsExpr *>(expr.get());
 
   vector<unique_ptr<Expression>> child_bound_expressions;
-  unique_ptr<Expression>        &left  = like_expr->left();
-  unique_ptr<Expression>        &right = like_expr->right();
+  unique_ptr<Expression>        &left  = is_expr->left();
+  unique_ptr<Expression>        &right = is_expr->right();
 
-  RC rc = bind_expression(left, child_bound_expressions);
+  // is 右边必须是常量
+  if (right->type() != ExprType::VALUE) {
+    LOG_WARN("right expression of IS must be a constant");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  RC rc = RC::SUCCESS;
+
+  rc = bind_expression(left, child_bound_expressions);
   if (OB_FAIL(rc)) {
     return rc;
   }
@@ -592,9 +600,9 @@ RC ExpressionBinder::bind_is_null_expression(
     return RC::INVALID_ARGUMENT;
   }
 
-  unique_ptr<Expression> &lBoundedExpr = child_bound_expressions[0];
-  if (lBoundedExpr.get() != left.get()) {
-    left.reset(lBoundedExpr.release());
+  unique_ptr<Expression> &leftBoundedExpr = child_bound_expressions[0];
+  if (leftBoundedExpr.get() != left.get()) {
+    left.reset(leftBoundedExpr.release());
   }
 
   child_bound_expressions.clear();
@@ -608,11 +616,11 @@ RC ExpressionBinder::bind_is_null_expression(
     return RC::INVALID_ARGUMENT;
   }
 
-  unique_ptr<Expression> &rBoundedExpr = child_bound_expressions[0];
-  if (rBoundedExpr.get() != right.get()) {
-    right.reset(rBoundedExpr.release());
+  unique_ptr<Expression> &rightBoundedExpr = child_bound_expressions[0];
+  if (rightBoundedExpr.get() != right.get()) {
+    right.reset(rightBoundedExpr.release());
   }
 
-  bound_expressions.emplace_back(std::move(like_expr));
+  bound_expressions.emplace_back(std::move(expr));
   return RC::SUCCESS;
 }

@@ -326,7 +326,8 @@ void Value::set_string_from_other(const Value &other)
 void Value::set_is_null()
 {
   reset();
-  is_null_ = true;
+  is_null_   = true;
+  attr_type_ = AttrType::NULLS;
 }
 
 const char *Value::data() const
