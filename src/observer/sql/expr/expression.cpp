@@ -880,7 +880,11 @@ RC       IsExpr::get_value(const Tuple &tuple, Value &value) const
     return rc;
   }
   if (right_value.is_null()) {
-    value.set_boolean(left_value.is_null());
+    if (comp_op_ == CompOp::IS) {
+      value.set_boolean(left_value.is_null());
+    } else {
+      value.set_boolean(!left_value.is_null());
+    }
   } else if (right_value.attr_type() == AttrType::BOOLEANS) {
     value.set_boolean(left_value.is_null() == right_value.get_boolean());
   } else {
