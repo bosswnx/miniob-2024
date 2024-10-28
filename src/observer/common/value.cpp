@@ -314,7 +314,6 @@ void Value::set_value(const Value &value)
 
 void Value::set_string_from_other(const Value &other)
 {
-  reset();
   ASSERT(attr_type_ == AttrType::CHARS, "attr type is not CHARS");
   if (own_data_ && other.value_.pointer_value_ != nullptr && length_ != 0) {
     this->value_.pointer_value_ = new char[this->length_ + 1];
