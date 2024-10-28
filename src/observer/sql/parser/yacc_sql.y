@@ -835,7 +835,11 @@ comp_op:
     ;
 
 group_by:
-    GROUP BY expression_list
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | GROUP BY expression_list
     {
       $$ = new std::vector<std::unique_ptr<Expression>>;
       $$->swap(*$3);
