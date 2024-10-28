@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
  * @details 与DataType，就是数据类型，配套完成各种算术运算、比较、类型转换等操作。这里同时记录了数据的值与类型。
  * 当需要对值做运算时，建议使用类似 Value::add 的操作而不是 DataType::add。在进行运算前，应该设置好结果的类型，
  * 比如进行两个INT类型的除法运算时，结果类型应该设置为FLOAT。
+ * NULL 很特殊，当一个 Value 的值是 NULL 的时候，不会考虑他是什么类型的。
  */
 class Value final
 {
@@ -121,7 +122,7 @@ public:
   static RC add(const Value &left, const Value &right, Value &result)
   {
     if (left.is_null() || right.is_null()) {
-      result.set_is_null(true);
+      result.set_is_null();
       return RC::SUCCESS;
     }
     RC rc = set_result_type(left, right, result);
@@ -134,7 +135,7 @@ public:
   static RC subtract(const Value &left, const Value &right, Value &result)
   {
     if (left.is_null() || right.is_null()) {
-      result.set_is_null(true);
+      result.set_is_null();
       return RC::SUCCESS;
     }
     RC rc = set_result_type(left, right, result);
@@ -147,7 +148,7 @@ public:
   static RC multiply(const Value &left, const Value &right, Value &result)
   {
     if (left.is_null() || right.is_null()) {
-      result.set_is_null(true);
+      result.set_is_null();
       return RC::SUCCESS;
     }
     RC rc = set_result_type(left, right, result);
@@ -160,7 +161,7 @@ public:
   static RC divide(const Value &left, const Value &right, Value &result)
   {
     if (left.is_null() || right.is_null()) {
-      result.set_is_null(true);
+      result.set_is_null();
       return RC::SUCCESS;
     }
     RC rc = set_result_type(left, right, result);
@@ -177,7 +178,7 @@ public:
   static RC negative(const Value &value, Value &result)
   {
     if (value.is_null()) {
-      result.set_is_null(true);
+      result.set_is_null();
       return RC::SUCCESS;
     }
     return DataType::type_instance(result.attr_type())->negative(value, result);
@@ -223,7 +224,7 @@ public:
     // 场景 1：构造出的 NULL 是未定义类型，需要转型到正确类型
     if (value.is_null()) {
       result.set_type(to_type);
-      result.set_is_null(true);
+      result.set_is_null();
       return RC::SUCCESS;
     }
     return DataType::type_instance(value.attr_type())->cast_to(value, to_type, result);
@@ -234,7 +235,7 @@ public:
   void set_data(const char *data, int length) { this->set_data(const_cast<char *>(data), length); }
   void set_value(const Value &value);
   void set_boolean(bool val);
-  void set_is_null(bool _is_null);
+  void set_is_null();
 
   string to_string() const;
 

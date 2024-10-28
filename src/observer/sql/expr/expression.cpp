@@ -770,9 +770,8 @@ RC LikeExpr::get_value(const Tuple &tuple, Value &value) const
   const std::string p = pValue.get_string();
   value.set_type(AttrType::BOOLEANS);
   if (sValue.is_null() || pValue.is_null()) {
-    value.set_is_null(true);
+    value.set_is_null();
   } else {
-    value.set_is_null(false);
     bool like = string_like(s.c_str(), p.c_str());
     if (is_like_) {
       value.set_boolean(like);

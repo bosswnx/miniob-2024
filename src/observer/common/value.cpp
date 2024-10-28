@@ -35,7 +35,7 @@ Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 Value Value::NullValue()
 {
   Value value;
-  value.is_null_ = true;
+  value.set_is_null();
   return value;
 }
 // 从 YYYY-MM-DD 格式的日期字符串创建 Value
@@ -282,6 +282,11 @@ void Value::set_vector(const vector<float> &vec)
 
 void Value::set_value(const Value &value)
 {
+  reset();
+  if (value.is_null()) {
+    set_is_null();
+    return;
+  }
   switch (value.attr_type_) {
     case AttrType::INTS: {
       set_int(value.get_int());
@@ -305,11 +310,11 @@ void Value::set_value(const Value &value)
       ASSERT(false, "got an invalid value type");
     } break;
   }
-  set_is_null(value.is_null());
 }
 
 void Value::set_string_from_other(const Value &other)
 {
+  reset();
   ASSERT(attr_type_ == AttrType::CHARS, "attr type is not CHARS");
   if (own_data_ && other.value_.pointer_value_ != nullptr && length_ != 0) {
     this->value_.pointer_value_ = new char[this->length_ + 1];
@@ -318,45 +323,11 @@ void Value::set_string_from_other(const Value &other)
   }
 }
 
-void Value::set_is_null(bool _is_null)
+// 设置为 NULL 值
+void Value::set_is_null()
 {
-  is_null_ = _is_null;
-  if (!is_null_) {
-    return;
-  }
-  // 为各类型的 null 值准备数据，复制 value 的数据时可以不用考虑 null 值的存在
-  switch (attr_type_) {
-    case AttrType::BOOLEANS: {
-      value_.bool_value_ = false;
-      length_            = sizeof(bool);
-    } break;
-    case AttrType::CHARS: {
-      if (own_data_ && value_.pointer_value_ != nullptr) {
-        break;
-      }
-      value_.pointer_value_    = new char[1];
-      value_.pointer_value_[0] = '\0';
-      length_                  = 0;
-      own_data_                = true;
-    } break;
-    case AttrType::DATES:
-    case AttrType::INTS: {
-      value_.int_value_ = 0;
-      length_           = sizeof(int);
-    } break;
-    case AttrType::FLOATS: {
-      value_.float_value_ = 0;
-      length_             = sizeof(float);
-    } break;
-    case AttrType::VECTORS: {
-      value_.vector_value_ = new vector<float>();
-      length_              = sizeof(value_.vector_value_);
-    } break;
-    case AttrType::UNDEFINED: {
-      ASSERT(false, "please set data type before set null");
-    } break;
-    default: ASSERT(false, "unimplemented");
-  }
+  reset();
+  is_null_ = true;
 }
 
 const char *Value::data() const

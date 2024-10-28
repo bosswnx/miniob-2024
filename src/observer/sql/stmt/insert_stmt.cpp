@@ -49,7 +49,7 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
 
   // 检查每列的类型和nullable 是否匹配(在执行阶段还有检查）
   for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
-    if (values[i].attr_type() != table_meta.field(i)->type() && !values[i].is_null()) {
+    if (!values[i].is_null() && values[i].attr_type() != table_meta.field(i)->type()) {
       LOG_WARN("value doesn't match: %s != %s", attr_type_to_string(values[i].attr_type()), attr_type_to_string(table_meta.field(i)->type()));
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
