@@ -553,13 +553,15 @@ RC Table::update_index(const Record &record, const std::vector<FieldMeta> &affec
       }
     }
   }
-  for (auto index : indexNeedUpdate) {
-    rc = index->delete_entry(record.data(), &record.rid());
-    if (OB_FAIL(rc)) {
-      LOG_WARN("delete index entry failed: %s", strrc(rc));
-      return rc;
-    }
-  }
+  // 操你妈，这里他妈不用删除旧的索引，我真他妈想不到他是怎么处理的 BEGIN
+  // for (auto index : indexNeedUpdate) {
+  //   rc = index->delete_entry(old_record.data(), &old_record.rid());
+  //   if (OB_FAIL(rc)) {
+  //     LOG_WARN("delete index entry failed: %s", strrc(rc));
+  //     return rc;
+  //   }
+  // }
+  // 操你妈，这里他妈不用删除旧的索引，我真他妈想不到他是怎么处理的 END
   for (auto index : indexNeedUpdate) {
     rc = index->insert_entry(record.data(), &record.rid());
     if (OB_FAIL(rc)) {

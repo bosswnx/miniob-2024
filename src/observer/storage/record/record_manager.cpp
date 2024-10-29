@@ -681,22 +681,17 @@ RC RecordFileHandler::visit_record(const RID &rid, function<bool(Record &)> upda
     return rc;
   }
 
+  // 需要将数据复制出来再修改，否则update_record调用失败但是实际上数据却更新成功了，
+  // 会导致数据库状态不正确
   Record inplace_record;
   rc = page_handler->get_record(rid, inplace_record);
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to get record from record page handle. rid=%s, rc=%s", rid.to_string().c_str(), strrc(rc));
     return rc;
   }
-
-  // 需要将数据复制出来再修改，否则update_record调用失败但是实际上数据却更新成功了，
-  // 会导致数据库状态不正确
-  Record record;
-  record.copy_data(inplace_record.data(), inplace_record.len());
-  record.set_rid(rid);
-
-  bool updated = updater(record);
+  bool updated = updater(inplace_record);
   if (updated) {
-    rc = page_handler->update_record(rid, record.data());
+    rc = page_handler->update_record(rid, inplace_record.data());
   }
   return rc;
 }
