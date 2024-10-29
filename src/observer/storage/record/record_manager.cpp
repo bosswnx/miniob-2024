@@ -68,7 +68,7 @@ string PageHeader::to_string() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-RecordPageIterator::RecordPageIterator() = default;
+RecordPageIterator::RecordPageIterator()  = default;
 RecordPageIterator::~RecordPageIterator() = default;
 
 void RecordPageIterator::init(RecordPageHandler *record_page_handler, SlotNum start_slot_num /*=0*/)
@@ -201,7 +201,8 @@ RC RecordPageHandler::init_empty_page(
     }
   }
 
-  rc = log_handler_.init_new_page(frame_, page_num, span(reinterpret_cast<const char *>(column_index), column_num * sizeof(int)));
+  rc = log_handler_.init_new_page(
+      frame_, page_num, span(reinterpret_cast<const char *>(column_index), column_num * sizeof(int)));
   if (OB_FAIL(rc)) {
     LOG_ERROR("Failed to init empty page: write log failed. page_num:record_size %d:%d. rc=%s", 
               page_num, record_size, strrc(rc));
@@ -829,6 +830,9 @@ RC RecordFileScanner::close_scan()
     delete record_page_handler_;
     record_page_handler_ = nullptr;
   }
+
+  // SSQ 需要加上这个才能正常运行。但是不知道会不会导致 memory leak
+  record_page_iterator_ = RecordPageIterator();
 
   return RC::SUCCESS;
 }

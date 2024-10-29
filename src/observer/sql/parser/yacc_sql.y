@@ -102,6 +102,10 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         AND
         SET
         ON
+        IN
+        NOT_IN
+        EXISTS
+        NOT_EXISTS
         LOAD
         DATA
         INFILE
@@ -670,6 +674,10 @@ expression:
     | expression '/' expression {
       $$ = create_arithmetic_expression(ArithmeticExpr::Type::DIV, $1, $3, sql_string, &@$);
     }
+    | LBRACE select_stmt RBRACE {
+      $$ = new SubqueryExpr($2);
+      $$->set_name(token_name(sql_string, &@$));
+    }
     | LBRACE expression RBRACE {
       $$ = $2;
       $$->set_name(token_name(sql_string, &@$));
@@ -681,6 +689,12 @@ expression:
       $$ = new ValueExpr(*$1);
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
+    }
+    | LBRACE value value_list RBRACE  {
+      std::vector<Value> *values = $3;
+      values->emplace_back(*$2);
+      $$ = new ValueListExpr(*values);
+      $$->set_name(token_name(sql_string, &@$));
     }
     | rel_attr {
       RelAttrSqlNode *node = $1;
@@ -821,6 +835,22 @@ condition:
       $$->right_expr = std::unique_ptr<Expression>($3);
       $$->comp_op = $2;
     }
+    // 懒得之后再判断左 expression 是否为空了，直接在这里加上 EXISTS 吧。
+    | EXISTS expression
+    {
+      $$ = new ConditionSqlNode;
+      $$->comp_op = CompOp::EXISTS;
+      // left_expr: SpecialPlaceholderExpr
+      $$->left_expr = std::make_unique<SpecialPlaceholderExpr>();
+      $$->right_expr = std::unique_ptr<Expression>($2);
+    }
+    | NOT_EXISTS expression
+    {
+      $$ = new ConditionSqlNode;
+      $$->comp_op = CompOp::NOT_EXISTS;
+      $$->left_expr = std::make_unique<SpecialPlaceholderExpr>();
+      $$->right_expr = std::unique_ptr<Expression>($2);
+    }
     ;
 
 comp_op:
@@ -834,6 +864,10 @@ comp_op:
     | NOT LIKE { $$ = CompOp::NOT_LIKE; }
     | IS { $$ = CompOp::IS; }
     | IS NOT { $$ = CompOp::NOT_IS; }
+    | IN { $$ = CompOp::IN; }
+    | NOT_IN { $$ = CompOp::NOT_IN; }
+    | EXISTS { $$ = CompOp::EXISTS; }
+    | NOT_EXISTS { $$ = CompOp::NOT_EXISTS; }
     ;
 
 group_by:

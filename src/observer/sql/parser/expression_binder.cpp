@@ -105,12 +105,49 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
       return bind_is_expression(expr, bound_expressions);
     } break;
 
+    case ExprType::SUB_QUERY: {
+      return bind_sub_query_expression(expr, bound_expressions);
+    } break;
+
+    case ExprType::SPECIAL_PLACEHOLDER: {
+      if (nullptr == expr) {
+        return RC::SUCCESS;
+      }
+      bound_expressions.emplace_back(std::move(expr));
+      return RC::SUCCESS;
+    } break;
+
+    case ExprType::VALUES: {
+      return bind_values_expression(expr, bound_expressions);
+    } break;
+
     default: {
       LOG_WARN("unknown expression type: %d", static_cast<int>(expr->type()));
       return RC::INTERNAL;
     }
   }
   return RC::INTERNAL;
+}
+
+RC ExpressionBinder::bind_values_expression(
+    unique_ptr<Expression> &values_expr, vector<unique_ptr<Expression>> &bound_expressions)
+{
+  if (nullptr == values_expr) {
+    return RC::SUCCESS;
+  }
+
+  bound_expressions.emplace_back(std::move(values_expr));
+  return RC::SUCCESS;
+}
+
+RC ExpressionBinder::bind_sub_query_expression(
+    unique_ptr<Expression> &sub_query_expr, vector<unique_ptr<Expression>> &bound_expressions)
+{
+  if (nullptr == sub_query_expr) {
+    return RC::SUCCESS;
+  }
+  bound_expressions.emplace_back(std::move(sub_query_expr));
+  return RC::SUCCESS;
 }
 
 RC ExpressionBinder::bind_star_expression(
@@ -388,8 +425,8 @@ RC check_aggregate_expression(AggregateExpr &expression)
   }
 
   // 校验数据类型与聚合类型是否匹配
-  AggregateType       aggregate_type   = expression.aggregate_type();
-  AttrType            child_value_type = child_expression->value_type();
+  AggregateType aggregate_type   = expression.aggregate_type();
+  AttrType      child_value_type = child_expression->value_type();
   switch (aggregate_type) {
     case AggregateType::SUM:
     case AggregateType::AVG: {
@@ -408,7 +445,7 @@ RC check_aggregate_expression(AggregateExpr &expression)
   }
 
   // 子表达式中不能再包含聚合表达式
-  function<RC(std::unique_ptr<Expression>&)> check_aggregate_expr = [&](unique_ptr<Expression> &expr) -> RC {
+  function<RC(std::unique_ptr<Expression> &)> check_aggregate_expr = [&](unique_ptr<Expression> &expr) -> RC {
     RC rc = RC::SUCCESS;
     if (expr->type() == ExprType::AGGREGATION) {
       LOG_WARN("aggregate expression cannot be nested");
@@ -433,7 +470,7 @@ RC ExpressionBinder::bind_aggregate_expression(
 
   RC rc = RC::SUCCESS;
 
-  auto unbound_aggregate_expr = static_cast<UnboundAggregateExpr *>(expr.get());
+  auto          unbound_aggregate_expr = static_cast<UnboundAggregateExpr *>(expr.get());
   AggregateType aggregate_type         = unbound_aggregate_expr->aggregate_type();
 
   unique_ptr<Expression>        &child_expr = unbound_aggregate_expr->child();
@@ -531,7 +568,7 @@ RC ExpressionBinder::bind_vector_distance_expression(
   auto vde = static_cast<VectorDistanceExpr *>(expr.get());
 
   vector<unique_ptr<Expression>> child_bound_expressions;
-  unique_ptr<Expression>        &left = vde->left();
+  unique_ptr<Expression>        &left  = vde->left();
   unique_ptr<Expression>        &right = vde->right();
 
   RC rc = bind_expression(left, child_bound_expressions);

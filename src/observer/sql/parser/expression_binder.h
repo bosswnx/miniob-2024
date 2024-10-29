@@ -71,7 +71,10 @@ private:
       std::unique_ptr<Expression> &vector_distance_expr, std::vector<std::unique_ptr<Expression>> &bound_expressions);
   RC bind_is_expression(
       std::unique_ptr<Expression> &is_expr, std::vector<std::unique_ptr<Expression>> &bound_expressions);
-
+  RC bind_sub_query_expression(
+        std::unique_ptr<Expression> &sub_query_expr, std::vector<std::unique_ptr<Expression>> &bound_expressions);
+  RC bind_values_expression(
+        std::unique_ptr<Expression> &values_expr, std::vector<std::unique_ptr<Expression>> &bound_expressions);
 private:
   BinderContext &context_;
 };
