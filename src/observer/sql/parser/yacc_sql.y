@@ -511,7 +511,7 @@ value:
     | 
     NULL_T {
       $$ = new Value();
-      $$->set_is_null();
+      $$->set_null();
       @$ = @1;
     }
     ;

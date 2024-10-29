@@ -35,7 +35,7 @@ Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 Value Value::NullValue()
 {
   Value value;
-  value.set_is_null();
+  value.set_null();
   return value;
 }
 // 从 YYYY-MM-DD 格式的日期字符串创建 Value
@@ -60,7 +60,6 @@ Value::Value(const Value &other)
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
-  this->is_null_   = other.is_null_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
@@ -78,7 +77,6 @@ Value::Value(Value &&other)
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
   this->value_     = other.value_;
-  this->is_null_   = other.is_null_;
   other.own_data_  = false;
   other.length_    = 0;
 }
@@ -92,7 +90,6 @@ Value &Value::operator=(const Value &other)
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
-  this->is_null_   = other.is_null_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
@@ -115,7 +112,6 @@ Value &Value::operator=(Value &&other) noexcept
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
   this->value_     = other.value_;
-  this->is_null_   = other.is_null_;
   other.own_data_  = false;
   other.length_    = 0;
   return *this;
@@ -136,7 +132,6 @@ void Value::reset()
   attr_type_ = AttrType::UNDEFINED;
   length_    = 0;
   own_data_  = false;
-  is_null_   = false;
 }
 
 void Value::set_data(char *data, int length)
@@ -284,7 +279,7 @@ void Value::set_value(const Value &value)
 {
   reset();
   if (value.is_null()) {
-    set_is_null();
+    set_null();
     return;
   }
   switch (value.attr_type_) {
@@ -323,10 +318,9 @@ void Value::set_string_from_other(const Value &other)
 }
 
 // 设置为 NULL 值
-void Value::set_is_null()
+void Value::set_null()
 {
   reset();
-  is_null_   = true;
   attr_type_ = AttrType::NULLS;
 }
 
@@ -357,7 +351,7 @@ const char *Value::data() const
 string Value::to_string() const
 {
   string res;
-  if (is_null_) {
+  if (is_null()) {
     return "NULL";
   }
   RC rc = DataType::type_instance(this->attr_type_)->to_string(*this, res);
@@ -370,7 +364,7 @@ string Value::to_string() const
 
 int Value::compare(const Value &other) const
 {
-  if (is_null_ || other.is_null_) {
+  if (is_null() || other.is_null()) {
     return INT32_MAX;  // 空值参与比较，返回 false
   }
   return DataType::type_instance(this->attr_type_)->compare(*this, other);
@@ -492,7 +486,7 @@ bool Value::get_boolean() const
 // 不会判断是否是 date 类型，需要调用者提前自己判断
 bool Value::is_date_valid() const
 {
-  if (is_null_) {
+  if (is_null()) {
     return true;
   }
   int date  = get_int();
