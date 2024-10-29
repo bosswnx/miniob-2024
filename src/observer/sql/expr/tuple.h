@@ -220,8 +220,10 @@ public:
       TextData text_data;
       memcpy(&text_data, this->record_->data() + field_meta->offset(), field_meta->len());
       TextUtils::load_text(table_, &text_data);
+      cell.set_type(AttrType::TEXTS);
       cell.set_text(text_data.str, text_data.len, true);
     } else {
+      cell.set_type(field_meta->type());
       cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     }
     return RC::SUCCESS;

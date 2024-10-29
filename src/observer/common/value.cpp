@@ -150,6 +150,7 @@ void Value::reset()
   own_data_  = false;
 }
 
+// set data 前必须要先设置 type
 void Value::set_data(char *data, int length)
 {
   switch (attr_type_) {
@@ -194,7 +195,7 @@ void Value::set_data(char *data, int length)
       length_ = length;
     } break;
     default: {
-      LOG_WARN("unknown data type: %d", attr_type_);
+      ASSERT(false, "unknown data type: %d", attr_type_);
     } break;
   }
 }
