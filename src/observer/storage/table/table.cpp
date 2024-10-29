@@ -346,17 +346,14 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
 
 RC Table::set_value_to_record(char *record_data, const Value &value, const FieldMeta *field)
 {
-  size_t       copy_len = field->len();
-  const size_t data_len = value.length();
   auto         bitmap   = common::Bitmap(record_data + table_meta_.null_bitmap_start(), table_meta_.field_num());
-  if (field->type() == AttrType::CHARS) {
-    if (copy_len > data_len) {
-      copy_len = data_len + 1;
-    }
+  if (value.is_null()) {
+    bitmap.set_bit(field->field_id() - table_meta_.sys_field_num());
+    return RC::SUCCESS;
   }
-  if (field->type() == AttrType::VECTORS) {
-    copy_len = min(field->len() * sizeof(float), data_len * sizeof(float) + sizeof(float));
-  }
+  bitmap.clear_bit(field->field_id() - table_meta_.sys_field_num());
+  ASSERT(field->type() == value.attr_type(), "field type and value type mismatch");
+  size_t copy_len = value.data_length();
   if (field->type() == AttrType::TEXTS) {
     const auto text_data         = reinterpret_cast<const TextData *>(value.data());
     TextData   text_data_updated = *text_data;
@@ -364,11 +361,6 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
     memcpy(record_data + field->offset(), &text_data_updated, copy_len);
   } else {
     memcpy(record_data + field->offset(), value.data(), copy_len);
-  }
-  if (value.is_null()) {
-    bitmap.set_bit(field->field_id() - table_meta_.sys_field_num());
-  } else {
-    bitmap.clear_bit(field->field_id() - table_meta_.sys_field_num());
   }
   return RC::SUCCESS;
 }

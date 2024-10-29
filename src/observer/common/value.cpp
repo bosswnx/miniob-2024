@@ -175,19 +175,13 @@ void Value::set_data(char *data, int length)
       length_ = length;
     } break;
     case AttrType::VECTORS: {
-      int           offset = 0;
-      vector<float> vec;
-      while (offset < length * sizeof(float)) {
+      auto *tmp = new vector<float>();
+      for (int offset = 0; offset < length; offset += sizeof(float)) {
         float f;
         memcpy(&f, data + offset, sizeof(float));
-        // 如果 f 是 nan，说明数据已经读完
-        if (f != f) {
-          break;
-        }
-        vec.push_back(f);
-        offset += sizeof(float);
+        tmp->push_back(f);
       }
-      value_.vector_value_ = new vector<float>(vec);
+      value_.vector_value_ = tmp;
       length_ = value_.vector_value_->size(); // Value 的 length_ 是向量的维度
     } break;
     case AttrType::TEXTS: {
@@ -293,7 +287,7 @@ void Value::set_vector(const vector<float> &vec)
   reset();
   attr_type_           = AttrType::VECTORS;
   value_.vector_value_ = new vector<float>(vec);
-  length_              = sizeof(value_.vector_value_);
+  length_              = value_.vector_value_->size();
 }
 
 void Value::set_value(const Value &value)

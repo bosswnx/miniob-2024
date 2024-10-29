@@ -64,8 +64,8 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
     // 检查 VECTOR 的长度是否超过限制
-    if (table_meta.field(i)->type() == AttrType::VECTORS && values[i].length() > table_meta.field(i)->len()) {
-      LOG_WARN("value length exceeds limit: %d > %d", values[i].length(), table_meta.field(i)->len());
+    if (table_meta.field(i)->type() == AttrType::VECTORS && values[i].data_length() > table_meta.field(i)->len()) {
+      LOG_WARN("value length exceeds limit: %d > %d", values[i].data_length(), table_meta.field(i)->len());
       return RC::INVALID_ARGUMENT;
     }
   }

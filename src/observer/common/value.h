@@ -249,13 +249,15 @@ public:
 
   /// 复制数据时使用
   /// 保证字符串结尾的 \0 也能被复制
-  /// 正确处理text 和 null
+  /// 正确处理 text 和 null 和 vector
   int data_length() const
   {
     if (attr_type_ == AttrType::CHARS) {
       return length_ + 1;
     } else if (attr_type_ == AttrType::TEXTS) {
       return offsetof(TextData, TextData::len) + sizeof(TextData::len);  // 只复制前两项成员
+    } else if (attr_type_ == AttrType::VECTORS) {
+      return length_ * sizeof(float);
     } else {
       return length_;     // null 返回 0
     }
