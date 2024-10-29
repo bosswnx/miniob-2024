@@ -44,9 +44,35 @@ std::string expr_type_to_string(ExprType type)
     case ExprType::AGGREGATION: return "AGGREGATION";
     case ExprType::LIKE: return "LIKE";
     case ExprType::VECTOR_DISTANCE_EXPR: return "VECTOR_DISTANCE_EXPR";
-    case ExprType::IS_NULL: return "IS_NULL";
+    case ExprType::IS: return "IS";
     default: return "UNKNOWN";
   }
+}
+
+bool UnboundFieldExpr::equal(const Expression &other) const
+{
+  if (this == &other) {
+    return true;
+  }
+  if (other.type() != ExprType::UNBOUND_FIELD) {
+    return false;
+  }
+  const auto &other_field_expr = static_cast<const UnboundFieldExpr &>(other);
+  return strcmp(table_name(), other_field_expr.table_name()) == 0 &&
+         strcmp(field_name(), other_field_expr.field_name()) == 0;
+}
+
+bool UnboundFieldExpr::equal(const Expression &other) const
+{
+  if (this == &other) {
+    return true;
+  }
+  if (other.type() != ExprType::UNBOUND_FIELD) {
+    return false;
+  }
+  const auto &other_field_expr = static_cast<const UnboundFieldExpr &>(other);
+  return strcmp(table_name(), other_field_expr.table_name()) == 0 &&
+         strcmp(field_name(), other_field_expr.field_name()) == 0;
 }
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
@@ -1011,9 +1037,8 @@ RC LikeExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
   const std::string p = pValue.get_string();
   value.set_type(AttrType::BOOLEANS);
   if (sValue.is_null() || pValue.is_null()) {
-    value.set_is_null(true);
+    value.set_null();
   } else {
-    value.set_is_null(false);
     bool like = string_like(s.c_str(), p.c_str());
     if (is_like_) {
       value.set_boolean(like);
@@ -1099,34 +1124,46 @@ RC VectorDistanceExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
 
 std::unique_ptr<Expression> &VectorDistanceExpr::left() { return left_; }
 std::unique_ptr<Expression> &VectorDistanceExpr::right() { return right_; }
-IsNullExpr::IsNullExpr(bool is_null, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
-    : is_null_(is_null), left_(std::move(left)), right_(std::move(right))
+
+IsExpr::IsExpr(CompOp comp_op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
+    : comp_op_(comp_op), left_(std::move(left)), right_(std::move(right))
 {}
-ExprType IsNullExpr::type() const { return ExprType::IS_NULL; }
-AttrType IsNullExpr::value_type() const { return AttrType::BOOLEANS; }
-int      IsNullExpr::value_length() const { return sizeof(bool); }
-RC       IsNullExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
+ExprType IsExpr::type() const { return ExprType::IS; }
+AttrType IsExpr::value_type() const { return AttrType::BOOLEANS; }
+int      IsExpr::value_length() const { return sizeof(bool); }
+RC       IsExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
-  ASSERT(right_->type() == ExprType::VALUE, "'is' must be followed by null/not null");
-  auto null_expr  = static_cast<ValueExpr *>(right_.get());
-  auto null_value = null_expr->get_value();
-  ASSERT(null_value.is_null(), "'is' must be followed by null/not null");
+  RC rc = RC::SUCCESS;
+  if (right_->type() != ExprType::VALUE) {
+    LOG_WARN("right expression of IS must be a constant");
+    return RC::INVALID_ARGUMENT;
+  }
+  Value right_value;
   Value left_value;
-  RC    rc = left_->get_value(tuple, left_value);
-  if (OB_FAIL(rc)) {
-    LOG_WARN("failed to get left value, rc=", strrc(rc));
+  rc = right_->get_value(tuple, right_value);
+  if (rc != RC::SUCCESS) {
     return rc;
   }
-  bool is = left_value.is_null();
-  if (is_null_) {
-    value.set_boolean(is);
+  rc = left_->get_value(tuple, left_value);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  if (right_value.is_null()) {
+    if (comp_op_ == CompOp::IS) {
+      value.set_boolean(left_value.is_null());
+    } else {
+      value.set_boolean(!left_value.is_null());
+    }
+  } else if (right_value.attr_type() == AttrType::BOOLEANS) {
+    value.set_boolean(left_value.is_null() == right_value.get_boolean());
   } else {
-    value.set_boolean(!is);
+    LOG_WARN("right expression of IS must be a boolean constant");
+    return RC::INVALID_ARGUMENT;
   }
   return RC::SUCCESS;
 }
-std::unique_ptr<Expression> &IsNullExpr::left() { return left_; }
-std::unique_ptr<Expression> &IsNullExpr::right() { return right_; }
+std::unique_ptr<Expression> &IsExpr::left() { return left_; }
+std::unique_ptr<Expression> &IsExpr::right() { return right_; }
 
 SubqueryExpr::SubqueryExpr(ParsedSqlNode *sub_query_sn) : sub_query_sn_(sub_query_sn) {}
 

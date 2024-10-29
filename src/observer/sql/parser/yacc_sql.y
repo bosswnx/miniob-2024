@@ -515,6 +515,7 @@ value:
     | 
     NULL_T {
       $$ = new Value();
+      $$->set_null();
       @$ = @1;
     }
     ;
@@ -871,6 +872,12 @@ group_by:
     /* empty */
     {
       $$ = nullptr;
+    }
+    | GROUP BY expression_list
+    {
+      $$ = new std::vector<std::unique_ptr<Expression>>;
+      $$->swap(*$3);
+      delete $3;
     }
     ;
 load_data_stmt:

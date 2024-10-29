@@ -138,11 +138,9 @@ RC Table::drop(Db *db, const char *table_name, const char *base_dir)
   data_buffer_pool_->close_file();
   data_buffer_pool_ = nullptr;  // 防止析构函数中再次尝试关闭文件
   if (unlink(meta_file_path.c_str()) == -1) {
-    LOG_ERROR("Failed to remove table metadata file for %s due to %s", meta_file_path, strerror(errno));
     return RC::INTERNAL;
   }
   if (unlink(data_file_path.c_str()) == -1) {
-    LOG_ERROR("Failed to remove table data file for %s due to %s", meta_file_path, strerror(errno));
     return RC::INTERNAL;
   }
   return RC::SUCCESS;

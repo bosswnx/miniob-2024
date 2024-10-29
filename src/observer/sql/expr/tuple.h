@@ -212,8 +212,11 @@ public:
     FieldExpr       *field_expr = speces_[index];
     const FieldMeta *field_meta = field_expr->field().meta();
     cell.set_type(field_meta->type());
-    cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
-    cell.set_is_null(bitmap->get_bit(index));
+    if (bitmap->get_bit(index)) {
+      cell.set_null();
+    } else {
+      cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+    }
     return RC::SUCCESS;
   }
 
@@ -293,7 +296,7 @@ private:
   Record                  *record_ = nullptr;
   const Table             *table_  = nullptr;
   std::vector<FieldExpr *> speces_;
-  std::unique_ptr<Bitmap>  bitmap            = nullptr;
+  std::unique_ptr<Bitmap>  bitmap            = nullptr;  // 用于标记字段是否为 NULL
   int32_t                  null_bitmap_start = 0;
 };
 

@@ -46,7 +46,7 @@ enum class ExprType
 
   FIELD,        ///< 字段。在实际执行时，根据行数据内容提取对应字段的值
   VALUE,        ///< 常量值
-  VALUES,       ///< 常量值列表
+  VALUES,       ///< 多个常量值
   CAST,         ///< 需要做类型转换的表达式
   COMPARISON,   ///< 需要做比较的表达式
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
@@ -54,7 +54,7 @@ enum class ExprType
   AGGREGATION,  ///< 聚合运算
   LIKE,          ///<  字符串匹配
   VECTOR_DISTANCE_EXPR,  ///< 向量距离表达式(内含三种距离计算方式)
-  IS_NULL,       ///< 判断是否为 NULL
+  IS              ,       ///< IS 语句
 
   SUB_QUERY,  ///< 子查询
   SPECIAL_PLACEHOLDER,  ///< 特殊占位符，用于特殊的表达式
@@ -174,6 +174,8 @@ public:
   {}
 
   virtual ~UnboundFieldExpr() = default;
+
+  bool equal(const Expression &other) const override;
 
   ExprType type() const override { return ExprType::UNBOUND_FIELD; }
   AttrType value_type() const override { return AttrType::UNDEFINED; }
@@ -521,10 +523,15 @@ private:
   std::unique_ptr<Expression> right_;
 };
 
-class IsNullExpr : public Expression
+/**
+ * @brief IS 表达式
+ * @ingroup Expression
+ * IS 表达式，用于判断是否为 NULL 或者 true 或 false，因此右边的表达式必须是一个常量
+ */
+class IsExpr : public Expression
 {
 public:
-  IsNullExpr(bool is_null, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
+  IsExpr(CompOp comp_op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   ExprType                     type() const override;
   AttrType                     value_type() const override;
   int                          value_length() const override;
@@ -533,7 +540,7 @@ public:
   std::unique_ptr<Expression> &right();
 
 private:
-  bool                        is_null_;  // true 表示 IS NULL, false 表示 IS NOT NULL
+  CompOp                      comp_op_;  // IS 或 IS NOT
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
 };

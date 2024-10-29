@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
  * @details 与DataType，就是数据类型，配套完成各种算术运算、比较、类型转换等操作。这里同时记录了数据的值与类型。
  * 当需要对值做运算时，建议使用类似 Value::add 的操作而不是 DataType::add。在进行运算前，应该设置好结果的类型，
  * 比如进行两个INT类型的除法运算时，结果类型应该设置为FLOAT。
+ * NULL 很特殊，当一个 Value 的值是 NULL 的时候，不会考虑他是什么类型的。
  */
 class Value final
 {
@@ -36,8 +37,8 @@ public:
   friend class CharType;
   friend class DateType;
   friend class VectorType;
-  /// 构造NULL
-  Value();
+  /// 默认构造非空的Value
+  Value() = default;
 
   ~Value() { reset(); }
 
@@ -47,6 +48,10 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+
+
+  /// 构造类型未定义的 NULL
+  static Value NullValue();
 
   static Value *from_date(const char *s);
   static Value *from_vector(const char *s);
@@ -117,7 +122,7 @@ public:
   static RC add(const Value &left, const Value &right, Value &result)
   {
     if (left.is_null() || right.is_null()) {
-      result.set_is_null(true);
+      result.set_null();
       return RC::SUCCESS;
     }
     RC rc = set_result_type(left, right, result);
@@ -130,7 +135,7 @@ public:
   static RC subtract(const Value &left, const Value &right, Value &result)
   {
     if (left.is_null() || right.is_null()) {
-      result.set_is_null(true);
+      result.set_null();
       return RC::SUCCESS;
     }
     RC rc = set_result_type(left, right, result);
@@ -143,7 +148,7 @@ public:
   static RC multiply(const Value &left, const Value &right, Value &result)
   {
     if (left.is_null() || right.is_null()) {
-      result.set_is_null(true);
+      result.set_null();
       return RC::SUCCESS;
     }
     RC rc = set_result_type(left, right, result);
@@ -156,7 +161,7 @@ public:
   static RC divide(const Value &left, const Value &right, Value &result)
   {
     if (left.is_null() || right.is_null()) {
-      result.set_is_null(true);
+      result.set_null();
       return RC::SUCCESS;
     }
     RC rc = set_result_type(left, right, result);
@@ -173,7 +178,7 @@ public:
   static RC negative(const Value &value, Value &result)
   {
     if (value.is_null()) {
-      result.set_is_null(true);
+      result.set_null();
       return RC::SUCCESS;
     }
     return DataType::type_instance(result.attr_type())->negative(value, result);
@@ -219,7 +224,7 @@ public:
     // 场景 1：构造出的 NULL 是未定义类型，需要转型到正确类型
     if (value.is_null()) {
       result.set_type(to_type);
-      result.set_is_null(true);
+      result.set_null();
       return RC::SUCCESS;
     }
     return DataType::type_instance(value.attr_type())->cast_to(value, to_type, result);
@@ -230,7 +235,7 @@ public:
   void set_data(const char *data, int length) { this->set_data(const_cast<char *>(data), length); }
   void set_value(const Value &value);
   void set_boolean(bool val);
-  void set_is_null(bool _is_null);
+  void set_null();
 
   string to_string() const;
 
@@ -250,8 +255,7 @@ public:
     }
   }
 
-  AttrType attr_type() const { return attr_type_; }
-  [[nodiscard]] bool is_null() const { return is_null_; }
+  AttrType           attr_type() const { return attr_type_; }
   [[nodiscard]] bool is_date_valid() const;
 
 public:
@@ -275,10 +279,17 @@ public:
   void set_vector(const vector<float> &vec);
   void set_string_from_other(const Value &other);
 
+  bool is_int() const { return attr_type_ == AttrType::INTS; }
+  bool is_float() const { return attr_type_ == AttrType::FLOATS; }
+  bool is_boolean() const { return attr_type_ == AttrType::BOOLEANS; }
+  bool is_chars() const { return attr_type_ == AttrType::CHARS; }
+  bool is_vector() const { return attr_type_ == AttrType::VECTORS; }
+  bool is_date() const { return attr_type_ == AttrType::DATES; }
+  bool is_null() const { return attr_type_ == AttrType::NULLS; }
+
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;
-  int      length_    = 0; // 对于向量数据，length_ 表示向量的维度
-  bool     is_null_   = false;
+  int      length_    = 0;  // 对于向量数据，length_ 表示向量的维度
 
   union Val
   {
@@ -289,6 +300,6 @@ private:
     vector<float> *vector_value_; // 向量数据
   } value_ = {.int_value_ = 0};
 
-  /// 是否申请并占有内存, 目前对于 CHARS 类型 own_data_ 为true, 其余类型 own_data_ 为false
+  /// 是否申请并占有内存, 目前对于 CHARS 和 VECTORS 和 TEXT 类型 own_data_ 为true, 其余类型 own_data_ 为false
   bool own_data_ = false;
 };

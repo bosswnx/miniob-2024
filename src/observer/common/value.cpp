@@ -23,7 +23,6 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 
-Value::Value() : is_null_(true) {}
 
 Value::Value(int val) { set_int(val); }
 
@@ -33,6 +32,12 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+Value Value::NullValue()
+{
+  Value value;
+  value.set_null();
+  return value;
+}
 // 从 YYYY-MM-DD 格式的日期字符串创建 Value
 // 这个阶段不检查日期的合法性
 Value *Value::from_date(const char *s)
@@ -55,7 +60,6 @@ Value::Value(const Value &other)
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
-  this->is_null_   = other.is_null_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
@@ -73,7 +77,6 @@ Value::Value(Value &&other)
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
   this->value_     = other.value_;
-  this->is_null_   = other.is_null_;
   other.own_data_  = false;
   other.length_    = 0;
 }
@@ -87,7 +90,6 @@ Value &Value::operator=(const Value &other)
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
-  this->is_null_   = other.is_null_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
@@ -110,7 +112,6 @@ Value &Value::operator=(Value &&other) noexcept
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
   this->value_     = other.value_;
-  this->is_null_   = other.is_null_;
   other.own_data_  = false;
   other.length_    = 0;
   return *this;
@@ -131,7 +132,6 @@ void Value::reset()
   attr_type_ = AttrType::UNDEFINED;
   length_    = 0;
   own_data_  = false;
-  is_null_   = false;
 }
 
 void Value::set_data(char *data, int length)
@@ -277,6 +277,11 @@ void Value::set_vector(const vector<float> &vec)
 
 void Value::set_value(const Value &value)
 {
+  reset();
+  if (value.is_null()) {
+    set_null();
+    return;
+  }
   switch (value.attr_type_) {
     case AttrType::INTS: {
       set_int(value.get_int());
@@ -300,7 +305,6 @@ void Value::set_value(const Value &value)
       ASSERT(false, "got an invalid value type");
     } break;
   }
-  set_is_null(value.is_null());
 }
 
 void Value::set_string_from_other(const Value &other)
@@ -313,45 +317,11 @@ void Value::set_string_from_other(const Value &other)
   }
 }
 
-void Value::set_is_null(bool _is_null)
+// 设置为 NULL 值
+void Value::set_null()
 {
-  is_null_ = _is_null;
-  if (!is_null_) {
-    return;
-  }
-  // 为各类型的 null 值准备数据，复制 value 的数据时可以不用考虑 null 值的存在
-  switch (attr_type_) {
-    case AttrType::BOOLEANS: {
-      value_.bool_value_ = false;
-      length_            = sizeof(bool);
-    } break;
-    case AttrType::CHARS: {
-      if (own_data_ && value_.pointer_value_ != nullptr) {
-        break;
-      }
-      value_.pointer_value_    = new char[1];
-      value_.pointer_value_[0] = '\0';
-      length_                  = 0;
-      own_data_                = true;
-    } break;
-    case AttrType::DATES:
-    case AttrType::INTS: {
-      value_.int_value_ = 0;
-      length_           = sizeof(int);
-    } break;
-    case AttrType::FLOATS: {
-      value_.float_value_ = 0;
-      length_             = sizeof(float);
-    } break;
-    case AttrType::VECTORS: {
-      value_.vector_value_ = new vector<float>();
-      length_              = sizeof(value_.vector_value_);
-    } break;
-    case AttrType::UNDEFINED: {
-      ASSERT(false, "please set data type before set null");
-    } break;
-    default: ASSERT(false, "unimplemented");
-  }
+  reset();
+  attr_type_ = AttrType::NULLS;
 }
 
 const char *Value::data() const
@@ -381,7 +351,7 @@ const char *Value::data() const
 string Value::to_string() const
 {
   string res;
-  if (is_null_) {
+  if (is_null()) {
     return "NULL";
   }
   RC rc = DataType::type_instance(this->attr_type_)->to_string(*this, res);
@@ -394,7 +364,7 @@ string Value::to_string() const
 
 int Value::compare(const Value &other) const
 {
-  if (is_null_ || other.is_null_) {
+  if (is_null() || other.is_null()) {
     return INT32_MAX;  // 空值参与比较，返回 false
   }
   return DataType::type_instance(this->attr_type_)->compare(*this, other);
@@ -516,7 +486,7 @@ bool Value::get_boolean() const
 // 不会判断是否是 date 类型，需要调用者提前自己判断
 bool Value::is_date_valid() const
 {
-  if (is_null_) {
+  if (is_null()) {
     return true;
   }
   int date  = get_int();

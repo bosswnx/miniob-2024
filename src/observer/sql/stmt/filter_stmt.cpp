@@ -54,6 +54,11 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
         conditions_exprs.emplace_back(
             new ComparisonExpr(condition.comp_op, std::move(condition.left_expr), std::move(condition.right_expr)));
       } break;
+      case CompOp::IS:
+      case CompOp::NOT_IS: {
+        conditions_exprs.emplace_back(
+            new IsExpr(condition.comp_op, std::move(condition.left_expr), std::move(condition.right_expr)));
+      } break;
       default: {
         LOG_WARN("unsupported condition operator. comp_op=%d", condition.comp_op);
         return RC::INVALID_ARGUMENT;
