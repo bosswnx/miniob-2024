@@ -353,7 +353,7 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
   }
   bitmap.clear_bit(field->field_id() - table_meta_.sys_field_num());
   ASSERT(field->type() == value.attr_type(), "field type and value type mismatch");
-  size_t copy_len = value.data_length();
+  size_t copy_len = min(value.data_length(), field->len());
   if (field->type() == AttrType::TEXTS) {
     const auto text_data         = reinterpret_cast<const TextData *>(value.data());
     TextData   text_data_updated = *text_data;
