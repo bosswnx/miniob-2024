@@ -258,7 +258,7 @@ RC Table::insert_record(Record &record)
   return rc;
 }
 
-RC Table::visit_record(const RID &rid, function<bool(Record &)> visitor)
+RC Table::visit_record(const RID &rid, function<RC(Record &)> visitor)
 {
   return record_handler_->visit_record(rid, visitor);
 }

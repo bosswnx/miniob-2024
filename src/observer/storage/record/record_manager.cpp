@@ -671,7 +671,7 @@ RC RecordFileHandler::get_record(const RID &rid, Record &record)
   return rc;
 }
 
-RC RecordFileHandler::visit_record(const RID &rid, function<bool(Record &)> updater)
+RC RecordFileHandler::visit_record(const RID &rid, function<RC(Record &)> updater)
 {
   unique_ptr<RecordPageHandler> page_handler(RecordPageHandler::create(storage_format_));
 
@@ -689,8 +689,8 @@ RC RecordFileHandler::visit_record(const RID &rid, function<bool(Record &)> upda
     LOG_WARN("failed to get record from record page handle. rid=%s, rc=%s", rid.to_string().c_str(), strrc(rc));
     return rc;
   }
-  bool updated = updater(inplace_record);
-  if (updated) {
+  rc = updater(inplace_record);
+  if (rc == RC::SUCCESS) {
     rc = page_handler->update_record(rid, inplace_record.data());
   }
   return rc;

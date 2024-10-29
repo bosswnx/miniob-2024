@@ -103,7 +103,7 @@ public:
    * @param visitor
    * @return RC
    */
-  RC visit_record(const RID &rid, function<bool(Record &)> visitor);
+  RC visit_record(const RID &rid, function<RC(Record &)> visitor);
 
 public:
   int32_t     table_id() const { return table_meta_.table_id(); }

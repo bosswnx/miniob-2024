@@ -283,7 +283,7 @@ TEST(RecordManager, durability)
               ASSERT_EQ(record_file_handler.visit_record(rid,
                             [&new_record](Record &record) {
                               memcpy(record.data(), new_record.c_str(), new_record.size());
-                              return true;
+                              return RC::SUCCESS;
                             }),
                   RC::SUCCESS);
 
