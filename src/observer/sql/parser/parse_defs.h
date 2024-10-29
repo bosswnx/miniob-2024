@@ -102,6 +102,16 @@ struct JoinSqlNode
 };
 
 /**
+ * @brief 描述一个order by语句
+ * @ingroup SQLParser
+ */
+struct OrderBySqlNode
+{
+  std::unique_ptr<Expression> expression;  ///< 排序的字段
+  bool                        is_desc;     ///< 是否是降序
+};
+
+/**
  * @brief 描述一个select语句
  * @ingroup SQLParser
  * @details 一个正常的select语句描述起来比这个要复杂很多，这里做了简化。

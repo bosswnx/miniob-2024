@@ -108,6 +108,9 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         NOT_EXISTS
         LOAD
         DATA
+        ORDER
+        ASC
+        DESC
         INFILE
         EXPLAIN
         STORAGE
@@ -141,6 +144,8 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
   enum CompOp                                comp;
   RelAttrSqlNode *                           rel_attr;
   RelationSqlNode *                          relation;
+  OrderBySqlNode *                           order_by;
+  std::vector<OrderBySqlNode> *              order_by_list;
   std::vector<AttrInfoSqlNode> *             attr_infos;
   AttrInfoSqlNode *                          attr_info;
   Expression *                               expression;
@@ -187,6 +192,8 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <expression_list>     group_by
+%type <order_by>            order_by
+%type <order_by_list>       order_by_list
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -882,6 +889,44 @@ group_by:
       delete $3;
     }
     ;
+
+order_by:
+    expression ASC
+    {
+      $$ = new OrderBySqlNode;
+      $$->expression = std::unique_ptr<Expression>($1);
+      $$->is_desc = false;
+    }
+    | expression DESC
+    {
+      $$ = new OrderBySqlNode;
+      $$->expression = std::unique_ptr<Expression>($1);
+      $$->is_desc = true;
+    }
+    | expression
+    {
+      $$ = new OrderBySqlNode;
+      $$->expression = std::unique_ptr<Expression>($1);
+      $$->is_desc = false;
+    }
+    ;
+
+order_by_list:
+    order_by
+    {
+      $$ = new std::vector<OrderBySqlNode>;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+    | order_by COMMA order_by_list
+    {
+      $$ = $3;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+    ;
+
+
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 
     {
