@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "common/rc.h"
+#include "sql/expr/expression.h"
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
 
@@ -47,10 +48,13 @@ public:
 
   std::vector<std::unique_ptr<Expression>> &query_expressions() { return query_expressions_; }
   std::vector<std::unique_ptr<Expression>> &group_by() { return group_by_; }
+  std::vector<std::unique_ptr<Expression>> &order_by_exprs() { return order_by_exprs_; }
+  std::vector<bool>                        &order_by_descs() { return order_by_descs_; }
 
-private:
   std::vector<std::unique_ptr<Expression>> query_expressions_;
   std::vector<Table *>                     tables_;
   FilterStmt                              *filter_stmt_ = nullptr;
   std::vector<std::unique_ptr<Expression>> group_by_;
+  std::vector<std::unique_ptr<Expression>> order_by_exprs_;
+  std::vector<bool>                        order_by_descs_;
 };

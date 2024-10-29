@@ -168,13 +168,7 @@ class RowTuple : public Tuple
 {
 public:
   RowTuple() = default;
-  virtual ~RowTuple()
-  {
-    for (FieldExpr *spec : speces_) {
-      delete spec;
-    }
-    speces_.clear();
-  }
+  virtual ~RowTuple() = default;
 
   void set_record(Record *record)
   {
@@ -185,15 +179,10 @@ public:
   void set_schema(const Table *table, const std::vector<FieldMeta> *fields)
   {
     table_ = table;
-    // fix:join当中会多次调用右表的open,open当中会调用set_scheme，从而导致tuple当中会存储
-    // 很多无意义的field和value，因此需要先clear掉
-    for (FieldExpr *spec : speces_) {
-      delete spec;
-    }
-    this->speces_.clear();
-    this->speces_.reserve(fields->size());
+    speces_.clear();
+    speces_.reserve(fields->size());
     for (const FieldMeta &field : *fields) {
-      speces_.push_back(new FieldExpr(table, &field));
+      speces_.push_back(std::make_unique<FieldExpr>(table, &field));
     }
     null_bitmap_start = 0;
     for (const auto &trxField : table->table_meta().trx_fields()) {
@@ -210,7 +199,7 @@ public:
       return RC::INVALID_ARGUMENT;
     }
 
-    FieldExpr       *field_expr = speces_[index];
+    const FieldExpr *field_expr = speces_[index].get();
     const FieldMeta *field_meta = field_expr->field().meta();
     if (bitmap->get_bit(index)) {
       cell.set_null();
@@ -238,7 +227,7 @@ public:
       return RC::INVALID_ARGUMENT;
     }
 
-    FieldExpr       *field_expr = speces_[index];
+    const FieldExpr *field_expr = speces_[index].get();
     const FieldMeta *field_meta = field_expr->field().meta();
     if (data == nullptr) {
       if (field_meta->type() == AttrType::TEXTS && !cell.is_null()) {
@@ -294,7 +283,7 @@ public:
     }
 
     for (size_t i = 0; i < speces_.size(); ++i) {
-      const FieldExpr *field_expr = speces_[i];
+      const FieldExpr *field_expr = speces_[i].get();
       const Field     &field      = field_expr->field();
       if (0 == strcmp(field_name, field.field_name())) {
         return cell_at(i, cell);
@@ -320,11 +309,11 @@ public:
   const Record &record() const { return *record_; }
 
 private:
-  Record                  *record_ = nullptr;
-  const Table             *table_  = nullptr;
-  std::vector<FieldExpr *> speces_;
-  std::unique_ptr<Bitmap>  bitmap            = nullptr;  // 用于标记字段是否为 NULL
-  int32_t                  null_bitmap_start = 0;
+  Record                                 *record_ = nullptr;
+  const Table                            *table_  = nullptr;
+  std::vector<std::unique_ptr<FieldExpr>> speces_;
+  std::unique_ptr<Bitmap>                 bitmap            = nullptr;
+  int32_t                                 null_bitmap_start = 0;
 };
 
 /**
@@ -436,6 +425,7 @@ public:
     return RC::NOTFOUND;
   }
 
+  // 将一个 Tuple 转换为 ValueListTuple
   static RC make(const Tuple &tuple, ValueListTuple &value_list)
   {
     const int cell_num = tuple.cell_num();
