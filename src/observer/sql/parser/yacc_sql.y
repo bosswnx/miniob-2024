@@ -127,6 +127,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         MIN
         AVG
         SUM
+        TEXT_T
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -368,7 +369,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = $4;
+      $$->arr_len = $4;
       $$->nullable = false;
       free($1);
     }
@@ -377,7 +378,7 @@ attr_def:
           $$ = new AttrInfoSqlNode;
           $$->type = (AttrType)$2;
           $$->name = $1;
-          $$->length = $4;
+          $$->arr_len = $4;
           $$->nullable = true;
           free($1);
     }
@@ -386,7 +387,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = $4;
+      $$->arr_len = $4;
       $$->nullable = true;
       free($1);
     }
@@ -395,7 +396,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = 4;
+      $$->arr_len = 1;
       $$->nullable = false;
       free($1);
     }
@@ -404,7 +405,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = 4;
+      $$->arr_len = 1;
       $$->nullable = true;
       free($1);
     }
@@ -413,7 +414,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = 4;
+      $$->arr_len = 1;
       $$->nullable = true;
       free($1);
     }
@@ -427,6 +428,7 @@ type:
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
     | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
     | VECTOR_T   { $$ = static_cast<int>(AttrType::VECTORS); }
+    | TEXT_T     { $$ = static_cast<int>(AttrType::TEXTS); }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 

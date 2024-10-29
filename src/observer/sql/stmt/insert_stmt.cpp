@@ -21,7 +21,7 @@ InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
     : table_(table), values_(values), value_amount_(value_amount)
 {}
 
-RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
+RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
 {
   const char *table_name = inserts.relation_name.c_str();
   if (nullptr == db || nullptr == table_name || inserts.values.empty()) {
@@ -38,7 +38,7 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   }
 
   // check the fields number
-  const Value     *values     = inserts.values.data();
+  Value           *values     = inserts.values.data();
   const int        value_num  = static_cast<int>(inserts.values.size());
   const TableMeta &table_meta = table->table_meta();
   const int        field_num  = table_meta.field_num() - table_meta.sys_field_num();
@@ -50,15 +50,21 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   // 检查每列的类型和nullable 是否匹配(在执行阶段还有检查）
   for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
     if (!values[i].is_null() && values[i].attr_type() != table_meta.field(i)->type()) {
-      LOG_WARN("value doesn't match: %s != %s", attr_type_to_string(values[i].attr_type()), attr_type_to_string(table_meta.field(i)->type()));
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      // 类型不匹配时尝试转型，chars 可以转成 text
+      Value to_value;
+      RC    rc = Value::cast_to(values[i], table_meta.field(i)->type(), to_value);
+      if (OB_FAIL(rc)) {
+        LOG_WARN("value doesn't match: %s != %s", attr_type_to_string(values[i].attr_type()), attr_type_to_string(table_meta.field(i)->type()));
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      values[i] = to_value;
     }
     if (values[i].is_null() && !table_meta.field(i)->nullable()) {
       LOG_WARN("value of column %s cannot be null", table_meta.field(i)->name());
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
     // 检查 VECTOR 的长度是否超过限制
-    if (values[i].length() > table_meta.field(i)->len()) {
+    if (table_meta.field(i)->type() == AttrType::VECTORS && values[i].length() > table_meta.field(i)->len()) {
       LOG_WARN("value length exceeds limit: %d > %d", values[i].length(), table_meta.field(i)->len());
       return RC::INVALID_ARGUMENT;
     }

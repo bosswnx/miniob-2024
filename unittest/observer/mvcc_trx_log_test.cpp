@@ -28,8 +28,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/mvcc_trx.h"
 #include "common/thread/thread_pool_executor.h"
 
-using namespace std;
 using namespace common;
+using std::to_string;
 
 TEST(MvccTrxLog, wal)
 {
@@ -67,7 +67,7 @@ TEST(MvccTrxLog, wal)
     AttrInfoSqlNode attr_info;
     attr_info.name   = string("field_") + to_string(i);
     attr_info.type   = AttrType::INTS;
-    attr_info.length = 4;
+    attr_info.arr_len = 1;
     attr_infos.push_back(attr_info);
   }
 
@@ -188,7 +188,7 @@ TEST(MvccTrxLog, wal2)
     AttrInfoSqlNode attr_info;
     attr_info.name   = string("field_") + to_string(i);
     attr_info.type   = AttrType::INTS;
-    attr_info.length = 4;
+    attr_info.arr_len = 1;
     attr_infos.push_back(attr_info);
   }
 
@@ -373,7 +373,7 @@ TEST(MvccTrxLog, wal_rollback)
     AttrInfoSqlNode attr_info;
     attr_info.name   = string("field_") + to_string(i);
     attr_info.type   = AttrType::INTS;
-    attr_info.length = 4;
+    attr_info.arr_len = 1;
     attr_infos.push_back(attr_info);
   }
 
@@ -497,7 +497,7 @@ TEST(MvccTrxLog, wal_rollback_half)
     AttrInfoSqlNode attr_info;
     attr_info.name   = string("field_") + to_string(i);
     attr_info.type   = AttrType::INTS;
-    attr_info.length = 4;
+    attr_info.arr_len = 1;
     attr_infos.push_back(attr_info);
   }
 
@@ -626,7 +626,7 @@ TEST(MvccTrxLog, wal_rollback_abnormal)
     AttrInfoSqlNode attr_info;
     attr_info.name   = string("field_") + to_string(i);
     attr_info.type   = AttrType::INTS;
-    attr_info.length = 4;
+    attr_info.arr_len = 1;
     attr_infos.push_back(attr_info);
   }
 

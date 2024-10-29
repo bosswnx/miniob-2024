@@ -68,13 +68,13 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
     fields_.resize(attributes.size() + trx_fields->size());
     for (size_t i = 0; i < trx_fields->size(); i++) {
       const FieldMeta &field_meta = (*trx_fields)[i];
-      fields_[i] = FieldMeta(field_meta.name(), field_meta.type(), field_offset, field_meta.len(), false /*visible*/, field_meta.field_id());
-      // 对 Vector 类型进行特殊处理
-      if (field_meta.type() == AttrType::VECTORS) {
-        field_offset += field_meta.len() * sizeof(float);
-      } else {
-        field_offset += field_meta.len();
-      }
+      fields_[i]                  = FieldMeta(field_meta.name(),
+          field_meta.type(),
+          field_offset,
+          field_meta.len(),
+          false /*visible*/,
+          field_meta.field_id());
+      field_offset += field_meta.len();
     }
 
     trx_field_num = static_cast<int>(trx_fields->size());
@@ -89,7 +89,7 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
     rc = fields_[i + trx_field_num].init(attr_info.name.c_str(),
         attr_info.type,
         field_offset,
-        attr_info.length,
+        attr_info.arr_len * attr_type_size(attr_info.type),
         true /*visible*/,
         i,
         attr_info.nullable);
@@ -97,12 +97,7 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;
     }
-    // 对 Vector 类型进行特殊处理
-    if (attr_info.type == AttrType::VECTORS) {
-      field_offset += attr_info.length * sizeof(float);
-    } else {
-      field_offset += attr_info.length;
-    }
+    field_offset += attr_info.arr_len * attr_type_size(attr_info.type);
   }
   record_size_ = field_offset;
 
@@ -282,13 +277,7 @@ int TableMeta::deserialize(std::istream &is)
   storage_format_ = static_cast<StorageFormat>(storage_format);
   name_.swap(table_name);
   fields_.swap(fields);
-  
-  // 对 Vector 类型进行特殊处理
-  if (fields_.back().type() == AttrType::VECTORS) {
-    record_size_ = fields_.back().offset() + fields_.back().len()*sizeof(float) - fields_.begin()->offset();
-  } else {
-    record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
-  }
+  record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
 
   null_bitmap_start_ = 0;
   for (const FieldMeta &field_meta : fields_) {

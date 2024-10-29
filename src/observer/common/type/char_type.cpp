@@ -71,6 +71,10 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
       result.set_float(to);
       break;
     }
+    case AttrType::TEXTS: {
+      result.set_text(val.value_.pointer_value_, val.length());
+      return RC::SUCCESS;
+    }
     default: return RC::UNIMPLEMENTED;
   }
   return RC::SUCCESS;
@@ -78,7 +82,8 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
 
 int CharType::cast_cost(AttrType type)
 {
-  if (type == AttrType::CHARS) {
+  // CHARS 可以随意转为 text 类型
+  if (type == AttrType::CHARS || type == AttrType::TEXTS) {
     return 0;
   }
   return INT32_MAX;

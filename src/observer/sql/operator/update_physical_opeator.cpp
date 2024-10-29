@@ -20,6 +20,15 @@ RC UpdatePhysicalOperator::open(Trx *trx)
         if (OB_FAIL(rc)) {
           LOG_WARN("cannot get value from expression: %s", strrc(rc));
         }
+        if (cell.attr_type() != field_metas_[i].type()) {
+          Value to_value;
+          rc = Value::cast_to(cell, field_metas_[i].type(), to_value);
+          if (OB_FAIL(rc)) {
+            LOG_WARN("cannot cast from %s to %s", attr_type_to_string(cell.attr_type()), attr_type_to_string(field_metas_[i].type()));
+            return false;
+          }
+          cell = to_value;
+        }
         tuple->set_cell_at(field_metas_[i].field_id(), cell, record.data());
       }
       updateIndexTasks.push_back([this, record] {

@@ -127,6 +127,8 @@ public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
 
+  std::string text_data_file() const;
+
 private:
   Db                *db_ = nullptr;
   string             base_dir_;

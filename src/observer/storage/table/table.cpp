@@ -108,6 +108,26 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   table_meta_.serialize(fs);
   fs.close();
 
+  bool has_text = false;
+  for (const auto &attr : attributes) {
+    if (attr.type == AttrType::TEXTS) {
+      has_text = true;
+      break;
+    }
+  }
+  if (has_text) {
+    std::string text_file = table_text_data_file(base_dir, name);
+    fd                    = ::open(text_file.c_str(), O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+    if (fd < 0) {
+      if (EEXIST == errno) {
+        LOG_ERROR("Failed to create text data file, it has been created. %s, EEXIST, %s", path, strerror(errno));
+        return RC::SCHEMA_TABLE_EXIST;
+      }
+      LOG_ERROR("Create text data file failed. filename=%s, errmsg=%d:%s", path, errno, strerror(errno));
+      return RC::IOERR_OPEN;
+    }
+  }
+
   db_       = db;
   base_dir_ = base_dir;
 
@@ -134,14 +154,23 @@ RC Table::drop(Db *db, const char *table_name, const char *base_dir)
 {
   std::string data_file_path = table_data_file(base_dir, table_name);
   std::string meta_file_path = table_meta_file(base_dir, table_name);
+  std::string text_file_path = table_text_data_file(base_dir_.c_str(), table_meta_.name());
   // TODO: delete index
   data_buffer_pool_->close_file();
   data_buffer_pool_ = nullptr;  // 防止析构函数中再次尝试关闭文件
   if (unlink(meta_file_path.c_str()) == -1) {
+    LOG_ERROR("Failed to remove table metadata file for %s due to %s", meta_file_path.c_str(), strerror(errno));
     return RC::INTERNAL;
   }
   if (unlink(data_file_path.c_str()) == -1) {
+    LOG_ERROR("Failed to remove table data file for %s due to %s", meta_file_path.c_str(), strerror(errno));
     return RC::INTERNAL;
+  }
+  if (unlink(text_file_path.c_str()) == -1) {
+    if (errno != ENOENT) {
+      LOG_ERROR("Failed to remove text data file for %s due to %s", meta_file_path.c_str(), strerror(errno));
+      return RC::INTERNAL;
+    }
   }
   return RC::SUCCESS;
 }
@@ -328,7 +357,14 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
   if (field->type() == AttrType::VECTORS) {
     copy_len = min(field->len() * sizeof(float), data_len * sizeof(float) + sizeof(float));
   }
-  memcpy(record_data + field->offset(), value.data(), copy_len);
+  if (field->type() == AttrType::TEXTS) {
+    const auto text_data         = reinterpret_cast<const TextData *>(value.data());
+    TextData   text_data_updated = *text_data;
+    TextUtils::dump_text(this, &text_data_updated);  // 不能原地修改value 中的TextData.offset
+    memcpy(record_data + field->offset(), &text_data_updated, copy_len);
+  } else {
+    memcpy(record_data + field->offset(), value.data(), copy_len);
+  }
   if (value.is_null()) {
     bitmap.set_bit(field->field_id() - table_meta_.sys_field_num());
   } else {
@@ -598,3 +634,5 @@ RC Table::sync()
   LOG_INFO("Sync table over. table=%s", name());
   return rc;
 }
+
+std::string Table::text_data_file() const { return table_text_data_file(base_dir_.c_str(), table_meta_.name()); }
