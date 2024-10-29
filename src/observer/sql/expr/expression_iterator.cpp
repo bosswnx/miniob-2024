@@ -59,7 +59,6 @@ RC ExpressionIterator::iterate_child_expr(Expression &expr, function<RC(unique_p
         rc = callback(arithmetic_expr.right());
       }
     } break;
-
     case ExprType::AGGREGATION: {
       auto &aggregate_expr = static_cast<AggregateExpr &>(expr);
       rc = callback(aggregate_expr.child());
@@ -78,7 +77,6 @@ RC ExpressionIterator::iterate_child_expr(Expression &expr, function<RC(unique_p
         rc = callback(vde.right());
       }
     } break;
-
     case ExprType::IS_NULL: {
       auto &is_null_expr = static_cast<IsNullExpr &>(expr);
       rc                 = callback(is_null_expr.left());
@@ -86,7 +84,9 @@ RC ExpressionIterator::iterate_child_expr(Expression &expr, function<RC(unique_p
         rc = callback(is_null_expr.right());
       }
     } break;
-
+    case ExprType::VALUES:
+    case ExprType::SUB_QUERY:
+    case ExprType::SPECIAL_PLACEHOLDER:
     case ExprType::NONE:
     case ExprType::STAR:
     case ExprType::UNBOUND_FIELD:

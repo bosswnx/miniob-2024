@@ -65,6 +65,10 @@ enum class CompOp
   NOT_LIKE,     ///< "not like"
   IS,           ///< is null
   NOT_IS,       ///< is not null
+  IN,           ///< in
+  NOT_IN,       ///< not in
+  EXISTS,       ///< exists
+  NOT_EXISTS,   ///< not exists
   NO_OP,
 };
 

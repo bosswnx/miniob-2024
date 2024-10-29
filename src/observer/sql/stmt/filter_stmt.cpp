@@ -40,12 +40,17 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
         conditions_exprs.emplace_back(
             new LikeExpr(false, std::move(condition.left_expr), std::move(condition.right_expr)));
       } break;
+      case CompOp::EXISTS:
+      case CompOp::NOT_EXISTS:
+      case CompOp::IN:
+      case CompOp::NOT_IN:
       case CompOp::EQUAL_TO:
       case CompOp::LESS_EQUAL:
       case CompOp::NOT_EQUAL:
       case CompOp::LESS_THAN:
       case CompOp::GREAT_EQUAL:
       case CompOp::GREAT_THAN: {
+        // hint: 子查询会加入到这其中的一个 expr
         conditions_exprs.emplace_back(
             new ComparisonExpr(condition.comp_op, std::move(condition.left_expr), std::move(condition.right_expr)));
       } break;
