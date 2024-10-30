@@ -203,6 +203,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
   const TupleSchema &schema   = sql_result->tuple_schema();
   const int          cell_num = schema.cell_num();
 
+  // 表头
   for (int i = 0; i < cell_num; i++) {
     const TupleCellSpec &spec  = schema.cell_at(i);
     const char          *alias = spec.alias();
@@ -210,33 +211,40 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
       if (0 != i) {
         const char *delim = " | ";
 
-        rc = writer_->writen(delim, strlen(delim));
-        if (OB_FAIL(rc)) {
-          LOG_WARN("failed to send data to client. err=%s", strerror(errno));
-          return rc;
-        }
+        // rc = writer_->writen(delim, strlen(delim));
+        // if (OB_FAIL(rc)) {
+        //   LOG_WARN("failed to send data to client. err=%s", strerror(errno));
+        //   return rc;
+        // }
+
+        // 这里先不要把表头写入到 writer_ 中，ssq 在第一次执行算子之后可能会返回报错（MYSQL ERROR 1242）
+        // 如果先写了表头，那表头也会一起输出，过不了测
+        delayed_table_header.append(delim);
       }
 
-      int len = strlen(alias);
+      // int len = strlen(alias);
 
-      rc = writer_->writen(alias, len);
-      if (OB_FAIL(rc)) {
-        LOG_WARN("failed to send data to client. err=%s", strerror(errno));
-        sql_result->close();
-        return rc;
-      }
+      // rc = writer_->writen(alias, len);
+      // if (OB_FAIL(rc)) {
+      //   LOG_WARN("failed to send data to client. err=%s", strerror(errno));
+      //   sql_result->close();
+      //   return rc;
+      // }
+      delayed_table_header.append(alias);
     }
   }
 
+  // 表头换行符
   if (cell_num > 0) {
-    char newline = '\n';
+    // char newline = '\n';
 
-    rc = writer_->writen(&newline, 1);
-    if (OB_FAIL(rc)) {
-      LOG_WARN("failed to send data to client. err=%s", strerror(errno));
-      sql_result->close();
-      return rc;
-    }
+    // rc = writer_->writen(&newline, 1);
+    // if (OB_FAIL(rc)) {
+    //   LOG_WARN("failed to send data to client. err=%s", strerror(errno));
+    //   sql_result->close();
+    //   return rc;
+    // }
+    delayed_table_header.append("\n");
   }
 
   rc = RC::SUCCESS;
@@ -247,8 +255,27 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     rc = write_tuple_result(sql_result);
   }
 
+  if (rc == RC::INVALID_ARGUMENT) {
+    event->sql_result()->set_return_code(rc);
+    return write_state(event, need_disconnect);
+  }
+
   if (OB_FAIL(rc)) {
     return rc;
+  }
+
+  // 如果处理没问题，并且没有数据返回，那么就返回一个表头
+  if (!empty_result_flag) {
+    if (!delayed_table_header.empty()) {
+      rc = writer_->writen(delayed_table_header.data(), delayed_table_header.size());
+      if (OB_FAIL(rc)) {
+        LOG_WARN("failed to send data to client. err=%s", strerror(errno));
+        sql_result->close();
+        return rc;
+      }
+      // 释放内存, 也相当于做一个标记, 防止重复发送表头
+      delayed_table_header.clear();
+    }
   }
 
   if (cell_num == 0) {
@@ -280,6 +307,20 @@ RC PlainCommunicator::write_tuple_result(SqlResult *sql_result)
   Tuple *tuple = nullptr;
   while (RC::SUCCESS == (rc = sql_result->next_tuple(tuple))) {
     assert(tuple != nullptr);
+
+    if (!empty_result_flag) empty_result_flag = true;
+
+    // 写入表头
+    if (!delayed_table_header.empty()) {
+      rc = writer_->writen(delayed_table_header.data(), delayed_table_header.size());
+      if (OB_FAIL(rc)) {
+        LOG_WARN("failed to send data to client. err=%s", strerror(errno));
+        sql_result->close();
+        return rc;
+      }
+      // 释放内存, 也相当于做一个标记, 防止重复发送表头
+      delayed_table_header.clear();
+    }
 
     int cell_num = tuple->cell_num();
     for (int i = 0; i < cell_num; i++) {
@@ -334,6 +375,20 @@ RC PlainCommunicator::write_chunk_result(SqlResult *sql_result)
   RC rc = RC::SUCCESS;
   Chunk chunk;
   while (RC::SUCCESS == (rc = sql_result->next_chunk(chunk))) {
+
+    if (!empty_result_flag) empty_result_flag = true;
+    // 先写入表头
+    if (!delayed_table_header.empty()) {
+      rc = writer_->writen(delayed_table_header.data(), delayed_table_header.size());
+      if (OB_FAIL(rc)) {
+        LOG_WARN("failed to send data to client. err=%s", strerror(errno));
+        sql_result->close();
+        return rc;
+      }
+      // 释放内存, 也相当于做一个标记, 防止重复发送表头
+      delayed_table_header.clear();
+    }
+
     int col_num = chunk.column_num();
     for (int row_idx = 0; row_idx < chunk.rows(); row_idx++) {
       for (int col_idx = 0; col_idx < col_num; col_idx++) {

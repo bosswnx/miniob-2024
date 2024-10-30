@@ -303,9 +303,10 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
         break;
       } else if (comp_ != CompOp::IN && comp_ != CompOp::NOT_IN && comp_ != CompOp::EXISTS &&
                  comp_ != CompOp::NOT_EXISTS) {
-        // 当 comp_ 不是 IN、NOT_IN、EXISTS、NOT_EXISTS 时，子查询的结果只能是一个值
+        // 当 comp_ 不是 IN、NOT_IN、EXISTS、NOT_EXISTS 时，子查询的结果只能是一个值(MYSQL ERROR 1242 (21000))
         if (has_sub_queried_) {
           has_sub_queried_ = false;  // 良好的习惯，重置
+          LOG_WARN("ERROR 1242 (21000): Subquery returns more than 1 row");
           rc               = RC::INVALID_ARGUMENT;
           break;
         } else {
@@ -330,8 +331,13 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
       }
     }
 
-    if (rc == RC::INVALID_ARGUMENT)
+    if (rc == RC::INVALID_ARGUMENT) {
+      // 关闭算子
+      if (subquery_expr->close_physical_operator() != RC::SUCCESS) {
+        LOG_WARN("failed to close physical operator.");
+      }
       return rc;
+    }
 
     // 执行到了算子末尾，还没有找到满足条件的值
     if (rc == RC::RECORD_EOF) {
@@ -1211,11 +1217,12 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
   // 开始执行物理操作
   rc = physical_operator_->next();
   if (rc != RC::SUCCESS) {
-    // 可能 EOF 了
     if (rc != RC::RECORD_EOF) {
+      close_physical_operator(); // 关闭子查询算子
       LOG_PANIC("failed to get next tuple. rc=%s", strrc(rc));
       return rc;
     }
+    // EOF
     rc = close_physical_operator();
     if (rc == RC::SUCCESS) {
       rc = RC::RECORD_EOF;
@@ -1227,6 +1234,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
   auto tuple_ = physical_operator_->current_tuple();
   if (tuple_->cell_num() > 1) {
     LOG_WARN("tuple cell count is not 1");
+    close_physical_operator(); // 关闭子查询算子
     return RC::INVALID_ARGUMENT;
   }
   // if (tuple_->cell_num() == 0) {
