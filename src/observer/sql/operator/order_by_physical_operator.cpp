@@ -27,6 +27,7 @@ OrderByPhysicalOperator::OrderByPhysicalOperator(vector<unique_ptr<Expression>> 
 
 RC OrderByPhysicalOperator::open(Trx *trx)
 {
+  tuple_idx_ = 0;
   if (children_.empty()) {
     return RC::SUCCESS;
   }
@@ -70,11 +71,19 @@ RC OrderByPhysicalOperator::open(Trx *trx)
 RC OrderByPhysicalOperator::next()
 {
   tuple_idx_++;
+  LOG_INFO("ORDER-BY: tuple_idx_=%d, tuples_.size()=%d", tuple_idx_, tuples_.size());
   return tuple_idx_ <= tuples_.size() ? RC::SUCCESS : RC::RECORD_EOF;
 }
 
 RC OrderByPhysicalOperator::close()
 {
+  if (children_.empty()) {
+    return RC::SUCCESS;
+  }
+  // close 的时候养成习惯，清理资源，关闭子算子！！！！！！spent 30mins hereee
+  children_[0]->close();
+  tuples_.clear();
+  tuple_idx_ = 0;
   return RC::SUCCESS;
 }
 Tuple *OrderByPhysicalOperator::current_tuple()

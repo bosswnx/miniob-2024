@@ -329,7 +329,6 @@ private:
   CompOp                      comp_;
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
-  mutable bool has_sub_queried_ = false;
 };
 
 /**
