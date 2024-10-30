@@ -31,6 +31,9 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/trx_end_stmt.h"
 #include "sql/stmt/drop_table_stmt.h"
 #include "sql/stmt/update_stmt.h"
+#include "storage/db/db.h"
+
+class Db;
 
 bool stmt_type_ddl(StmtType type)
 {
@@ -125,4 +128,50 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
     } break;
   }
   return RC::UNIMPLEMENTED;
+}
+
+RC Stmt::check_sub_select_legal(Db *db, ParsedSqlNode *sub_select)
+{
+  // 这个方法主要是检查子查询的合法性：子查询的查询的属性只能有一个。
+  FieldExpr *field_expr = nullptr;
+  StarExpr  *star_expr  = nullptr;
+  for (auto &expr : sub_select->selection.expressions) {
+    if (field_expr != nullptr) {
+      // 当左子查询的属性不止一个时，报错
+      LOG_WARN("invalid subquery attributes. It should be only one");
+      return RC::INVALID_ARGUMENT;
+    }
+    if (expr->type() == ExprType::FIELD) {
+      field_expr = static_cast<FieldExpr *>(expr.get());
+    } else if (expr->type() == ExprType::STAR) {
+      star_expr = static_cast<StarExpr *>(expr.get());
+    }
+  }
+  if (field_expr != nullptr && star_expr != nullptr) {
+    LOG_WARN("star_expr and field_expr cannot be used together in subquery");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  if (star_expr != nullptr) {
+    // 如果是 *，需要先获得 table，然后看其中的 fields 的大小是不是 1，如果不是，报错
+    int fields_num = 0;
+    for (size_t j = 0; j < sub_select->selection.relations.size(); ++j) {
+      const char *table_name = sub_select->selection.relations[j].name.c_str();
+      if (nullptr == table_name) {
+        LOG_WARN("invalid argument. relation name is null. index=%d", j);
+        return RC::INVALID_ARGUMENT;
+      }
+      Table *table = db->find_table(table_name);
+      if (nullptr == table) {
+        LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
+        return RC::SCHEMA_TABLE_NOT_EXIST;
+      }
+      fields_num += table->table_meta().field_num();
+    }
+    if (fields_num != 1) {
+      LOG_WARN("invalid subquery attributes");
+      return RC::INVALID_ARGUMENT;
+    }
+  }
+  return RC::SUCCESS;
 }

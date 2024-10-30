@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 #include "storage/table/table_meta.h"
+#include "sql/stmt/select_stmt.h"
 
 UpdateStmt::UpdateStmt(
     Table *table, std::vector<FieldMeta> attrs, std::vector<std::unique_ptr<Expression>> exprs, FilterStmt *stmt)
@@ -39,11 +40,31 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
   vector<unique_ptr<Expression>> bound_expressions;
   std::vector<FieldMeta>         field_metas;
   for (const auto &[attr, expr] : update.update_infos) {
+
+    // 检查要更新的字段是否存在
     auto field_meta = meta.field(attr.c_str());
     if (field_meta == nullptr) {
       LOG_WARN("field %s not found in table %s", attr.c_str(), table->name());
       return RC::SCHEMA_FIELD_NOT_EXIST;
     }
+
+    // 子查询（update-select）。创建 stmt。
+    if (expr->type() == ExprType::SUB_QUERY) {
+      SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(expr);
+      Stmt         *stmt          = nullptr;
+      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("update: cannot construct subquery stmt");
+        return rc;
+      }
+      // 检查子查询的合法性：子查询的查询的属性只能有一个
+      RC rc_ = check_sub_select_legal(db, subquery_expr->sub_query_sn());
+      if (rc_ != RC::SUCCESS) {
+        return rc_;
+      }
+      subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
+    }
+
     field_metas.push_back(*field_meta);
     std::unique_ptr<Expression> exprp(expr);
     RC                          rc = binder.bind_expression(exprp, bound_expressions);

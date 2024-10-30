@@ -499,18 +499,35 @@ RC PhysicalPlanGenerator::create_vec_plan(ExplainLogicalOperator &explain_oper, 
 
 RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &logical_operator, std::unique_ptr<PhysicalOperator> &oper)
 {
+  RC rc = RC::SUCCESS;
+
+  // 取出可能的 sub query 创建物理计划
+  auto logical_update_stmt_exprs = std::move(logical_operator.exprs());
+  for (auto &expr: logical_update_stmt_exprs) {
+    if (expr->type() == ExprType::SUB_QUERY) {
+      auto sub_query_expr = static_cast<SubqueryExpr *>(expr.get());
+      unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
+      rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper);
+      if (rc != RC::SUCCESS) {
+        LOG_PANIC("update_physical_generator: failed to create sub query physical plan. rc=%s", strrc(rc));
+        return rc;
+      }
+      sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
+    }
+  }
+
   oper = std::make_unique<UpdatePhysicalOperator>(
-      logical_operator.table(), logical_operator.field_metas(), std::move(logical_operator.exprs()));
+      logical_operator.table(), logical_operator.field_metas(), std::move(logical_update_stmt_exprs));
   auto children = std::move(logical_operator.children());
   if (!children.empty()) {
     std::unique_ptr<PhysicalOperator> child_oper;
-    if (RC rc = create(*children[0], child_oper); OB_FAIL(rc)) {
+    if (rc = create(*children[0], child_oper); OB_FAIL(rc)) {
       LOG_WARN("failed to create child physical operator. rc=%s", strrc(rc));
       return rc;
     }
     oper->add_child(std::move(child_oper));
   }
-  return RC::SUCCESS;
+  return rc;
 }
 
 RC PhysicalPlanGenerator::create_plan(OrderByLogicalOperator &logical_operator, unique_ptr<PhysicalOperator> &oper)

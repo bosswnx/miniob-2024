@@ -10,7 +10,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
   }
   std::vector<std::function<RC()>> updateIndexTasks;
   while (OB_SUCC(rc = child->next())) {
-    Tuple *tuple_ = child->current_tuple();
+    Tuple *tuple_ = child->current_tuple(); // 获得当前正在更新的 tuple
     auto   tuple  = dynamic_cast<RowTuple *>(tuple_);
     ASSERT(tuple != nullptr, "tuple cannot cast to RowTuple here!");
     rc = table_->visit_record(tuple->record().rid(), [this, tuple, trx, &updateIndexTasks](Record &record) {
@@ -24,6 +24,16 @@ RC UpdatePhysicalOperator::open(Trx *trx)
           LOG_WARN("field %s is not nullable, but the value is null", field_metas_[i].name());
           return RC::INVALID_ARGUMENT;
         }
+        if (exprs_[i]->type() == ExprType::SUB_QUERY) {
+          // we get the value again to check if the subquery is legal
+          Value test_cell_;
+          RC rc_ = exprs_[i]->get_value(*tuple, test_cell_);
+          if (rc_ != RC::RECORD_EOF) {
+            LOG_WARN("subquery should return only one value");
+            return RC::INVALID_ARGUMENT;
+          }
+        }
+        
         if (cell.attr_type() != field_metas_[i].type()) {
           Value to_value;
           rc = Value::cast_to(cell, field_metas_[i].type(), to_value);

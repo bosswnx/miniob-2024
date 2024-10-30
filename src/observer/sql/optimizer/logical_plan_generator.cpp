@@ -419,9 +419,27 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<Lo
     LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
     return rc;
   }
+
+  // 对可能的子查询（Update-select）创建逻辑算子
+  auto update_stmt_exprs = std::move(update_stmt->exprs());
+  for (auto &expr : update_stmt_exprs) {
+    if (expr->type() == ExprType::SUB_QUERY) {
+      auto sub_query_expr = static_cast<SubqueryExpr *>(expr.get());
+      auto sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
+      unique_ptr<LogicalOperator> sub_query_logical_oper;
+      rc = create_plan(sub_query_stmt, sub_query_logical_oper);
+      if (rc != RC::SUCCESS) {
+        LOG_PANIC("update_logical_generator: failed to create sub query logical plan. rc=%s", strrc(rc));
+        return rc;
+      }
+      sub_query_expr->set_logical_operator(std::move(sub_query_logical_oper));
+    }
+  }
+
   logical_operator = std::make_unique<UpdateLogicalOperator>(
-      update_stmt->table(), update_stmt->field_metas(), std::move(update_stmt->exprs()));
+      update_stmt->table(), update_stmt->field_metas(), std::move(update_stmt_exprs));
   // update 算子 -> select 算子 -> 扫表
+  // update -> predicate -> table_get
   if (predicate_operator) {
     predicate_operator->add_child(std::move(table_get_operator));
     logical_operator->add_child(std::move(predicate_operator));
