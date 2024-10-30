@@ -52,12 +52,26 @@ RC OrderByPhysicalOperator::open(Trx *trx)
     return rc;
   }
 
+  // 由于 null 在排序中被当成最小值，所以需要对 null 值进行特殊处理
   std::sort(tuples_.begin(), tuples_.end(), [this](const std::unique_ptr<ValueListTuple> &left, const std::unique_ptr<ValueListTuple> &right) {
     for (size_t i = 0; i < order_by_exprs_.size(); i++) {
       Value left_value;
       order_by_exprs_[i]->get_value(*left, left_value);
       Value right_value;
       order_by_exprs_[i]->get_value(*right, right_value);
+      // 如果 left 和 right 都是 null，则认为它们相等
+      if (left_value.is_null() && right_value.is_null()) {
+        continue;
+      }
+      // 如果 left 是 null，则认为它小于 right
+      if (left_value.is_null()) {
+        return order_by_descs_[i] ? false : true;
+      }
+      // 如果 right 是 null，则认为它大于 left
+      if (right_value.is_null()) {
+        return order_by_descs_[i] ? true : false;
+      }
+      // 如果 left 和 right 都不为 null，则比较它们的值
       if (left_value.compare(right_value) != 0) {
         return order_by_descs_[i] ? left_value.compare(right_value) > 0 : left_value.compare(right_value) < 0;
       }
