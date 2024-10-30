@@ -95,3 +95,20 @@ RC IntegerType::to_string(const Value &val, string &result) const
   result = ss.str();
   return RC::SUCCESS;
 }
+
+RC IntegerType::cast_to(const Value &val, AttrType type, Value &result) const
+{
+  switch (type) {
+    case AttrType::FLOATS: {
+      result.set_float(val.value_.int_value_);
+      break;
+    }
+    case AttrType::CHARS: {
+      // 本质上 IntegerType::to_string() 
+      result.set_string(val.to_string().c_str());
+      break;
+    }
+    default: return RC::UNIMPLEMENTED;
+  }
+  return RC::SUCCESS;
+}

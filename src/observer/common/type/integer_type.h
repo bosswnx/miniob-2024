@@ -30,6 +30,8 @@ public:
   RC negative(const Value &val, Value &result) const override;
   RC max(const Value &left, const Value &right, Value &result) const override;
   RC min(const Value &left, const Value &right, Value &result) const override;
+  
+  RC cast_to(const Value &val, AttrType type, Value &result) const override;
 
   RC set_value_from_str(Value &val, const string &data) const override;
 
