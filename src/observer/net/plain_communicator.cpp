@@ -186,6 +186,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
   RC rc = RC::SUCCESS;
 
   need_disconnect = true;
+  empty_result_flag = false;
 
   SqlResult *sql_result = event->sql_result();
 
@@ -193,7 +194,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     return write_state(event, need_disconnect);
   }
 
-  rc = sql_result->open();
+  rc = sql_result->open(); // hint: order by 在open的时候会next
   if (OB_FAIL(rc)) {
     sql_result->close();
     sql_result->set_return_code(rc);
@@ -297,6 +298,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     rc = rc_close;
   }
 
+  delayed_table_header.clear();
   return rc;
 }
 

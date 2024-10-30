@@ -38,10 +38,17 @@ RC OrderByPhysicalOperator::open(Trx *trx)
     return rc;
   }
 
-  while (child->next() == RC::SUCCESS) {
+  // while (child->next() == RC::SUCCESS) {
+  // 不屏蔽下层算子传回来的 rc
+  while ((rc = child->next()) == RC::SUCCESS) {
     ValueListTuple tuple;
     ValueListTuple::make(*child->current_tuple(), tuple);
     tuples_.push_back(std::make_unique<ValueListTuple>(tuple));
+  }
+
+  if (rc != RC::RECORD_EOF) {
+    LOG_WARN("ORDER-BY: failed to get next tuple. rc=%s", strrc(rc));
+    return rc;
   }
 
   std::sort(tuples_.begin(), tuples_.end(), [this](const std::unique_ptr<ValueListTuple> &left, const std::unique_ptr<ValueListTuple> &right) {
