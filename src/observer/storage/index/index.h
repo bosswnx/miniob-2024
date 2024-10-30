@@ -84,7 +84,7 @@ protected:
 
 protected:
   IndexMeta index_meta_;  ///< 索引的元数据
-  FieldMeta field_meta_;  ///< 当前实现仅考虑一个字段的索引
+  FieldMeta field_meta_;  ///< 索引了哪个字段
 };
 
 /**

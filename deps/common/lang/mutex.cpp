@@ -263,14 +263,14 @@ void DebugMutex::lock()
 {
 #ifdef DEBUG
   lock_.lock();
-  LOG_DEBUG("debug lock %p, lbt=%s", &lock_, lbt());
+  // LOG_DEBUG("debug lock %p, lbt=%s", &lock_, lbt());
 #endif
 }
 
 void DebugMutex::unlock()
 {
 #ifdef DEBUG
-  LOG_DEBUG("debug unlock %p, lbt=%s", &lock_, lbt());
+  // LOG_DEBUG("debug unlock %p, lbt=%s", &lock_, lbt());
   lock_.unlock();
 #endif
 }

@@ -37,6 +37,7 @@ public:
   friend class CharType;
   friend class DateType;
   friend class VectorType;
+  friend class TextType;
   /// 默认构造非空的Value
   Value() = default;
 
@@ -49,6 +50,7 @@ public:
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
 
+  static Value TextValue(const char *s, int len);
 
   /// 构造类型未定义的 NULL
   static Value NullValue();
@@ -245,13 +247,19 @@ public:
 
   int      length() const { return length_; }
 
-  /// 复制数据时使用，保证字符串结尾的 \0 也能被复制
+  /// 复制数据时使用
+  /// 保证字符串结尾的 \0 也能被复制
+  /// 正确处理 text 和 null 和 vector
   int data_length() const
   {
     if (attr_type_ == AttrType::CHARS) {
       return length_ + 1;
+    } else if (attr_type_ == AttrType::TEXTS) {
+      return offsetof(TextData, TextData::len) + sizeof(TextData::len);  // 只复制前两项成员
+    } else if (attr_type_ == AttrType::VECTORS) {
+      return length_ * sizeof(float);
     } else {
-      return length_;
+      return length_;     // null 返回 0
     }
   }
 
@@ -278,6 +286,8 @@ public:
   void set_vector(const char *s);
   void set_vector(const vector<float> &vec);
   void set_string_from_other(const Value &other);
+  void set_text_from_other(const Value &other);
+  void set_text(const char *s, int len, bool give_ownership = false);
 
   bool is_int() const { return attr_type_ == AttrType::INTS; }
   bool is_float() const { return attr_type_ == AttrType::FLOATS; }
@@ -298,6 +308,7 @@ private:
     bool    bool_value_;
     char   *pointer_value_;
     vector<float> *vector_value_; // 向量数据
+    TextData       text_value_;
   } value_ = {.int_value_ = 0};
 
   /// 是否申请并占有内存, 目前对于 CHARS 和 VECTORS 和 TEXT 类型 own_data_ 为true, 其余类型 own_data_ 为false

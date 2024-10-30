@@ -9,16 +9,16 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by wangyunlai on 2021/6/11
+// Created by Nelson Boss on 2024/10/29.
 //
 
-#pragma once
+#include "sql/operator/order_by_logical_operator.h"
 
-namespace common {
+using namespace std;
 
-int compare_int(void *arg1, void *arg2);
-int compare_float(void *arg1, void *arg2);
-int compare_string(const void *arg1, int arg1_max_length, const void *arg2, int arg2_max_length);
-
-float db_str_to_float(const char *str);
-}  // namespace common
+OrderByLogicalOperator::OrderByLogicalOperator(vector<unique_ptr<Expression>> &&expressions,
+                                               vector<bool> &&order_by_descs)
+{
+  expressions_ = std::move(expressions);
+  order_by_descs_ = std::move(order_by_descs);
+}

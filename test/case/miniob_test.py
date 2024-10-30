@@ -879,7 +879,7 @@ def __init_options():
   realpath = os.path.realpath(__file__)
   current_path = os.path.dirname(realpath)
   if not options.work_dir:
-    options.work_dir = tempfile.gettempdir() + '/miniob_nelson'
+    options.work_dir = tempfile.gettempdir() + '/miniob_cq'
     _logger.info('use %s as work directory', options.work_dir)
   if not options.project_dir:
     options.project_dir = os.path.realpath(current_path + '/../..')

@@ -156,15 +156,15 @@ RC MvccTrx::delete_record(Table *table, Record &record)
 
   RC delete_result = RC::SUCCESS;
 
-  RC rc = table->visit_record(record.rid(), [this, table, &delete_result, &end_field](Record &inplace_record) -> bool {
+  RC rc = table->visit_record(record.rid(), [this, table, &delete_result, &end_field](Record &inplace_record) -> RC {
     RC rc = this->visit_record(table, inplace_record, ReadWriteMode::READ_WRITE);
     if (OB_FAIL(rc)) {
       delete_result = rc;
-      return false;
+      return RC::INVALID_ARGUMENT;
     }
 
     end_field.set_int(inplace_record, -trx_id_);
-    return true;
+    return RC::SUCCESS;
   });
 
   if (OB_FAIL(rc)) {
@@ -291,7 +291,7 @@ RC MvccTrx::commit_with_trx_id(int32_t commit_xid)
         Field  begin_xid_field, end_xid_field;
         trx_fields(table, begin_xid_field, end_xid_field);
 
-        auto record_updater = [this, &begin_xid_field, commit_xid](Record &record) -> bool {
+        auto record_updater = [this, &begin_xid_field, commit_xid](Record &record) -> RC {
           LOG_DEBUG("before commit insert record. trx id=%d, begin xid=%d, commit xid=%d, lbt=%s",
                     trx_id_, begin_xid_field.get_int(record), commit_xid, lbt());
           ASSERT(begin_xid_field.get_int(record) == -this->trx_id_ && (!recovering_), 
@@ -299,7 +299,7 @@ RC MvccTrx::commit_with_trx_id(int32_t commit_xid)
                  begin_xid_field.get_int(record), trx_id_);
 
           begin_xid_field.set_int(record, commit_xid);
-          return true;
+          return RC::SUCCESS;
         };
 
         rc = operation.table()->visit_record(rid, record_updater);
@@ -314,14 +314,14 @@ RC MvccTrx::commit_with_trx_id(int32_t commit_xid)
         Field begin_xid_field, end_xid_field;
         trx_fields(table, begin_xid_field, end_xid_field);
 
-        auto record_updater = [this, &end_xid_field, commit_xid](Record &record) -> bool {
+        auto record_updater = [this, &end_xid_field, commit_xid](Record &record) -> RC {
           (void)this;
           ASSERT(end_xid_field.get_int(record) == -trx_id_, 
                  "got an invalid record while committing. end xid=%d, this trx id=%d", 
                  end_xid_field.get_int(record), trx_id_);
 
           end_xid_field.set_int(record, commit_xid);
-          return true;
+          return RC::SUCCESS;
         };
 
         rc = operation.table()->visit_record(rid, record_updater);
@@ -390,9 +390,9 @@ RC MvccTrx::rollback()
         Field begin_xid_field, end_xid_field;
         trx_fields(table, begin_xid_field, end_xid_field);
 
-        auto record_updater = [this, &end_xid_field](Record &record) -> bool {
+        auto record_updater = [this, &end_xid_field](Record &record) -> RC {
           if (recovering_ && end_xid_field.get_int(record) != -trx_id_) {
-            return false;
+            return RC::INVALID_ARGUMENT;
           }
 
           ASSERT(end_xid_field.get_int(record) == -trx_id_, 
@@ -400,7 +400,7 @@ RC MvccTrx::rollback()
                 end_xid_field.get_int(record), trx_id_);
 
           end_xid_field.set_int(record, trx_kit_.max_trx_id());
-          return true;
+          return RC::SUCCESS;
         };
 
         rc = table->visit_record(rid, record_updater);

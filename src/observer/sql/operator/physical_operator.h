@@ -56,6 +56,7 @@ enum class PhysicalOperatorType
   AGGREGATE_VEC,
   EXPR_VEC,
   UPDATE,
+  ORDER_BY,
 };
 
 /**

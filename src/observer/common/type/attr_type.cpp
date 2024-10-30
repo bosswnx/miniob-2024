@@ -12,7 +12,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/type/attr_type.h"
 
-const char *ATTR_TYPE_NAME[] = {"invalid", "undefined", "chars", "ints", "floats", "booleans", "dates", "vectors"};
+const char *ATTR_TYPE_NAME[] = {
+    "undefined", "chars", "ints", "floats", "booleans", "dates", "vectors", "nulls", "texts"};
 
 // 将属性类型转换为字符串
 const char *attr_type_to_string(AttrType type)
@@ -31,4 +32,17 @@ AttrType attr_type_from_string(const char *s)
     }
   }
   return AttrType::UNDEFINED;
+}
+
+size_t attr_type_size(AttrType type)
+{
+  switch (type) {
+    case AttrType::CHARS: return sizeof(char);
+    case AttrType::DATES:
+    case AttrType::INTS: return sizeof(int);
+    case AttrType::VECTORS:
+    case AttrType::FLOATS: return sizeof(float);
+    case AttrType::TEXTS: return offsetof(TextData, TextData::len) + sizeof(TextData::len);
+    default: return -1;
+  }
 }

@@ -26,15 +26,23 @@ namespace common {
 
 Log *g_log = nullptr;
 
+// 只保留简单的日志前缀
+const string RED    = "\033[1;31m";  // 加粗的红色
+const string GREEN  = "\033[1;32m";  // 加粗的绿色
+const string YELLOW = "\033[1;33m";  // 加粗的黄色
+const string CYAN   = "\033[1;36m";  // 加粗的青色
+const string RESET  = "\033[0m";
+
 Log::Log(const string &log_file_name, const LOG_LEVEL log_level, const LOG_LEVEL console_level)
     : log_name_(log_file_name), log_level_(log_level), console_level_(console_level)
 {
-  prefix_map_[LOG_LEVEL_PANIC] = "PANIC:";
-  prefix_map_[LOG_LEVEL_ERR]   = "ERROR:";
-  prefix_map_[LOG_LEVEL_WARN]  = "WARN:";
-  prefix_map_[LOG_LEVEL_INFO]  = "INFO:";
-  prefix_map_[LOG_LEVEL_DEBUG] = "DEBUG:";
-  prefix_map_[LOG_LEVEL_TRACE] = "TRACE:";
+  // 只保留简单的日志前缀
+  prefix_map_[LOG_LEVEL_PANIC] = RED + "[PANIC]" + RESET + " ";
+  prefix_map_[LOG_LEVEL_ERR]   = RED + "[ERROR]" + RESET + " ";
+  prefix_map_[LOG_LEVEL_WARN]  = YELLOW + "[WARN]" + RESET + " ";
+  prefix_map_[LOG_LEVEL_INFO]  = GREEN + "[INFO]" + RESET + " ";
+  prefix_map_[LOG_LEVEL_DEBUG] = CYAN + "[DEBUG]" + RESET + " ";
+  prefix_map_[LOG_LEVEL_TRACE] = CYAN + "[TRACE]" + RESET + " ";
 
   pthread_mutex_init(&lock_, nullptr);
 
@@ -97,9 +105,9 @@ int Log::output(const LOG_LEVEL level, const char *module, const char *prefix, c
     va_end(args);
 
     if (LOG_LEVEL_PANIC <= level && level <= console_level_) {
-      cout << msg << endl;
+      cout << prefix << msg << endl;
     } else if (default_set_.find(module) != default_set_.end()) {
-      cout << msg << endl;
+      cout << prefix << msg << endl;
     }
 
     if (LOG_LEVEL_PANIC <= level && level <= log_level_) {

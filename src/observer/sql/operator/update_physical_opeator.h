@@ -25,6 +25,6 @@ public:
 
 private:
   Table                                   *table_ = nullptr;
-  std::vector<FieldMeta>                   field_metas_;
-  std::vector<std::unique_ptr<Expression>> exprs_;
+  std::vector<FieldMeta>                   field_metas_;  // 需要更新的字段，等号左边
+  std::vector<std::unique_ptr<Expression>> exprs_;        // 更新的表达式，等号右边
 };

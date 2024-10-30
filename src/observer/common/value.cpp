@@ -32,6 +32,12 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+Value Value::TextValue(const char *s, int len)
+{
+  Value result;
+  result.set_text(s, len);
+  return result;
+}
 Value Value::NullValue()
 {
   Value value;
@@ -64,7 +70,9 @@ Value::Value(const Value &other)
     case AttrType::CHARS: {
       set_string_from_other(other);
     } break;
-
+    case AttrType::TEXTS: {
+      set_text_from_other(other);
+    } break;
     default: {
       this->value_ = other.value_;
     } break;
@@ -94,7 +102,9 @@ Value &Value::operator=(const Value &other)
     case AttrType::CHARS: {
       set_string_from_other(other);
     } break;
-
+    case AttrType::TEXTS: {
+      set_text_from_other(other);
+    } break;
     default: {
       this->value_ = other.value_;
     } break;
@@ -126,6 +136,12 @@ void Value::reset()
         value_.pointer_value_ = nullptr;
       }
       break;
+    case AttrType::TEXTS: {
+      if (own_data_ && value_.text_value_.str != nullptr) {
+        delete[] value_.text_value_.str;
+        value_.text_value_.str = nullptr;
+      }
+    }
     default: break;
   }
 
@@ -134,6 +150,7 @@ void Value::reset()
   own_data_  = false;
 }
 
+// set data 前必须要先设置 type
 void Value::set_data(char *data, int length)
 {
   switch (attr_type_) {
@@ -158,23 +175,21 @@ void Value::set_data(char *data, int length)
       length_ = length;
     } break;
     case AttrType::VECTORS: {
-      int           offset = 0;
-      vector<float> vec;
-      while (offset < length * sizeof(float)) {
+      auto *tmp = new vector<float>();
+      for (int offset = 0; offset < length; offset += sizeof(float)) {
         float f;
         memcpy(&f, data + offset, sizeof(float));
-        // 如果 f 是 nan，说明数据已经读完
-        if (f != f) {
-          break;
-        }
-        vec.push_back(f);
-        offset += sizeof(float);
+        tmp->push_back(f);
       }
-      value_.vector_value_ = new vector<float>(vec);
+      value_.vector_value_ = tmp;
       length_ = value_.vector_value_->size(); // Value 的 length_ 是向量的维度
     } break;
+    case AttrType::TEXTS: {
+      memcpy(&value_.text_value_, data, length);
+      length_ = length;
+    } break;
     default: {
-      LOG_WARN("unknown data type: %d", attr_type_);
+      ASSERT(false, "unknown data type: %d", attr_type_);
     } break;
   }
 }
@@ -272,7 +287,7 @@ void Value::set_vector(const vector<float> &vec)
   reset();
   attr_type_           = AttrType::VECTORS;
   value_.vector_value_ = new vector<float>(vec);
-  length_              = sizeof(value_.vector_value_);
+  length_              = value_.vector_value_->size();
 }
 
 void Value::set_value(const Value &value)
@@ -301,6 +316,9 @@ void Value::set_value(const Value &value)
     case AttrType::VECTORS: {
       set_vector(value.get_vector());
     } break;
+    case AttrType::TEXTS: {
+      set_text(value.value_.text_value_.str, value.value_.text_value_.len);
+    } break;
     default: {
       ASSERT(false, "got an invalid value type");
     } break;
@@ -317,6 +335,40 @@ void Value::set_string_from_other(const Value &other)
   }
 }
 
+void Value::set_text_from_other(const Value &other)
+{
+  ASSERT(attr_type_ == AttrType::TEXTS, "attr type is not TEXTS");
+  if (own_data_ && other.value_.text_value_.str != nullptr && other.length_ != 0) {
+    this->length_ = other.length_;
+    auto buffer   = new char[this->length_ + 1];
+    memcpy(buffer, other.value_.text_value_.str, this->length_);
+    buffer[this->length_]        = '\0';
+    this->value_.text_value_.str = buffer;
+    this->value_.text_value_.len = this->length_;
+  } else {
+    ASSERT(false, "own_data == false not handled");
+  }
+}
+
+void Value::set_text(const char *s, int len, bool give_ownership)
+{
+  attr_type_ = AttrType::TEXTS;
+  if (s == nullptr) {
+    length_ = 0;
+  } else {
+    length_                = len;
+    value_.text_value_.len = len;
+    own_data_              = true;
+    if (!give_ownership) {
+      auto buffer = new char[len + 1];
+      memcpy(buffer, s, len);
+      buffer[len]            = '\0';
+      value_.text_value_.str = buffer;
+    } else {
+      value_.text_value_.str = s;
+    }
+  }
+}
 // 设置为 NULL 值
 void Value::set_null()
 {
@@ -341,6 +393,9 @@ const char *Value::data() const
       float nan = std::numeric_limits<float>::quiet_NaN();
       memcpy(data + offset, &nan, sizeof(float));
       return data;
+    }
+    case AttrType::TEXTS: {
+      return reinterpret_cast<const char *>(&value_.text_value_);
     }
     default: {
       return (const char *)&value_;
@@ -447,22 +502,29 @@ vector<float> Value::get_vector() const
 bool Value::get_boolean() const
 {
   switch (attr_type_) {
+    case AttrType::TEXTS:
     case AttrType::CHARS: {
+      const char *str;
+      if (attr_type_ == AttrType::TEXTS) {
+        str = value_.text_value_.str;
+      } else {
+        str = value_.pointer_value_;
+      }
       try {
-        float val = std::stof(value_.pointer_value_);
+        float val = std::stof(str);
         if (val >= EPSILON || val <= -EPSILON) {
           return true;
         }
 
-        int int_val = std::stol(value_.pointer_value_);
+        int int_val = std::stol(str);
         if (int_val != 0) {
           return true;
         }
 
-        return value_.pointer_value_ != nullptr;
+        return str != nullptr;
       } catch (exception const &ex) {
-        LOG_TRACE("failed to convert string to float or integer. s=%s, ex=%s", value_.pointer_value_, ex.what());
-        return value_.pointer_value_ != nullptr;
+        LOG_TRACE("failed to convert string to float or integer. s=%s, ex=%s", str  , ex.what());
+        return str != nullptr;
       }
     } break;
     case AttrType::INTS: {

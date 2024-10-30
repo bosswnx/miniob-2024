@@ -483,7 +483,8 @@ RC DiskBufferPool::purge_frame(PageNum page_num, Frame *buf)
     }
   }
 
-  LOG_DEBUG("Successfully purge frame =%p, page %d frame_id=%s", buf, buf->page_num(), buf->frame_id().to_string().c_str());
+  // LOG_DEBUG("Successfully purge frame =%p, page %d frame_id=%s", buf, buf->page_num(),
+  // buf->frame_id().to_string().c_str());
   frame_manager_.free(id(), page_num, buf);
   return RC::SUCCESS;
 }
@@ -557,7 +558,7 @@ RC DiskBufferPool::flush_page_internal(Frame &frame)
   }
 
   frame.clear_dirty();
-  LOG_DEBUG("Flush block. file desc=%d, frame=%s", file_desc_, frame.to_string().c_str());
+  // LOG_DEBUG("Flush block. file desc=%d, frame=%s", file_desc_, frame.to_string().c_str());
 
   return RC::SUCCESS;
 }
@@ -705,7 +706,7 @@ RC DiskBufferPool::allocate_frame(PageNum page_num, Frame **buffer)
     Frame *frame = frame_manager_.alloc(id(), page_num);
     if (frame != nullptr) {
       *buffer = frame;
-      LOG_DEBUG("allocate frame %p, page num %d", frame, page_num);
+      // LOG_DEBUG("allocate frame %p, page num %d", frame, page_num);
       return RC::SUCCESS;
     }
 
@@ -858,7 +859,7 @@ RC BufferPoolManager::open_file(LogHandler &log_handler, const char *_file_name,
 
   buffer_pools_.insert(pair<string, DiskBufferPool *>(file_name, bp));
   id_to_buffer_pools_.insert(pair<int32_t, DiskBufferPool *>(bp->id(), bp));
-  LOG_DEBUG("insert buffer pool into fd buffer pools. fd=%d, bp=%p, lbt=%s", bp->file_desc(), bp, lbt());
+  // LOG_DEBUG("insert buffer pool into fd buffer pools. fd=%d, bp=%p, lbt=%s", bp->file_desc(), bp, lbt());
   _bp = bp;
   return RC::SUCCESS;
 }

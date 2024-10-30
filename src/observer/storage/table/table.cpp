@@ -108,6 +108,26 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   table_meta_.serialize(fs);
   fs.close();
 
+  bool has_text = false;
+  for (const auto &attr : attributes) {
+    if (attr.type == AttrType::TEXTS) {
+      has_text = true;
+      break;
+    }
+  }
+  if (has_text) {
+    std::string text_file = table_text_data_file(base_dir, name);
+    fd                    = ::open(text_file.c_str(), O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+    if (fd < 0) {
+      if (EEXIST == errno) {
+        LOG_ERROR("Failed to create text data file, it has been created. %s, EEXIST, %s", path, strerror(errno));
+        return RC::SCHEMA_TABLE_EXIST;
+      }
+      LOG_ERROR("Create text data file failed. filename=%s, errmsg=%d:%s", path, errno, strerror(errno));
+      return RC::IOERR_OPEN;
+    }
+  }
+
   db_       = db;
   base_dir_ = base_dir;
 
@@ -134,14 +154,23 @@ RC Table::drop(Db *db, const char *table_name, const char *base_dir)
 {
   std::string data_file_path = table_data_file(base_dir, table_name);
   std::string meta_file_path = table_meta_file(base_dir, table_name);
+  std::string text_file_path = table_text_data_file(base_dir_.c_str(), table_meta_.name());
   // TODO: delete index
   data_buffer_pool_->close_file();
   data_buffer_pool_ = nullptr;  // 防止析构函数中再次尝试关闭文件
   if (unlink(meta_file_path.c_str()) == -1) {
+    LOG_ERROR("Failed to remove table metadata file for %s due to %s", meta_file_path.c_str(), strerror(errno));
     return RC::INTERNAL;
   }
   if (unlink(data_file_path.c_str()) == -1) {
+    LOG_ERROR("Failed to remove table data file for %s due to %s", meta_file_path.c_str(), strerror(errno));
     return RC::INTERNAL;
+  }
+  if (unlink(text_file_path.c_str()) == -1) {
+    if (errno != ENOENT) {
+      LOG_ERROR("Failed to remove text data file for %s due to %s", meta_file_path.c_str(), strerror(errno));
+      return RC::INTERNAL;
+    }
   }
   return RC::SUCCESS;
 }
@@ -229,7 +258,7 @@ RC Table::insert_record(Record &record)
   return rc;
 }
 
-RC Table::visit_record(const RID &rid, function<bool(Record &)> visitor)
+RC Table::visit_record(const RID &rid, function<RC(Record &)> visitor)
 {
   return record_handler_->visit_record(rid, visitor);
 }
@@ -317,22 +346,21 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
 
 RC Table::set_value_to_record(char *record_data, const Value &value, const FieldMeta *field)
 {
-  size_t       copy_len = field->len();
-  const size_t data_len = value.length();
   auto         bitmap   = common::Bitmap(record_data + table_meta_.null_bitmap_start(), table_meta_.field_num());
-  if (field->type() == AttrType::CHARS) {
-    if (copy_len > data_len) {
-      copy_len = data_len + 1;
-    }
-  }
-  if (field->type() == AttrType::VECTORS) {
-    copy_len = min(field->len() * sizeof(float), data_len * sizeof(float) + sizeof(float));
-  }
-  memcpy(record_data + field->offset(), value.data(), copy_len);
   if (value.is_null()) {
     bitmap.set_bit(field->field_id() - table_meta_.sys_field_num());
+    return RC::SUCCESS;
+  }
+  bitmap.clear_bit(field->field_id() - table_meta_.sys_field_num());
+  ASSERT(field->type() == value.attr_type(), "field type and value type mismatch");
+  size_t copy_len = min(value.data_length(), field->len());
+  if (field->type() == AttrType::TEXTS) {
+    const auto text_data         = reinterpret_cast<const TextData *>(value.data());
+    TextData   text_data_updated = *text_data;
+    TextUtils::dump_text(this, &text_data_updated);  // 不能原地修改value 中的TextData.offset
+    memcpy(record_data + field->offset(), &text_data_updated, copy_len);
   } else {
-    bitmap.clear_bit(field->field_id() - table_meta_.sys_field_num());
+    memcpy(record_data + field->offset(), value.data(), copy_len);
   }
   return RC::SUCCESS;
 }
@@ -517,13 +545,15 @@ RC Table::update_index(const Record &record, const std::vector<FieldMeta> &affec
       }
     }
   }
-  for (auto index : indexNeedUpdate) {
-    rc = index->delete_entry(record.data(), &record.rid());
-    if (OB_FAIL(rc)) {
-      LOG_WARN("delete index entry failed: %s", strrc(rc));
-      return rc;
-    }
-  }
+  // 操你妈，这里他妈不用删除旧的索引，我真他妈想不到他是怎么处理的 BEGIN
+  // for (auto index : indexNeedUpdate) {
+  //   rc = index->delete_entry(old_record.data(), &old_record.rid());
+  //   if (OB_FAIL(rc)) {
+  //     LOG_WARN("delete index entry failed: %s", strrc(rc));
+  //     return rc;
+  //   }
+  // }
+  // 操你妈，这里他妈不用删除旧的索引，我真他妈想不到他是怎么处理的 END
   for (auto index : indexNeedUpdate) {
     rc = index->insert_entry(record.data(), &record.rid());
     if (OB_FAIL(rc)) {
@@ -598,3 +628,5 @@ RC Table::sync()
   LOG_INFO("Sync table over. table=%s", name());
   return rc;
 }
+
+std::string Table::text_data_file() const { return table_text_data_file(base_dir_.c_str(), table_meta_.name()); }

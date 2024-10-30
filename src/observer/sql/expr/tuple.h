@@ -25,8 +25,9 @@ See the Mulan PSL v2 for more details. */
 #include "common/value.h"
 #include "common/lang/bitmap.h"
 #include "storage/record/record.h"
-
-#include <storage/trx/mvcc_trx.h>
+#include "storage/trx/mvcc_trx.h"
+#include "storage/common/meta_util.h"
+#include "storage/common/text_utils.h"
 
 using Bitmap = common::Bitmap;
 class Table;
@@ -167,13 +168,7 @@ class RowTuple : public Tuple
 {
 public:
   RowTuple() = default;
-  virtual ~RowTuple()
-  {
-    for (FieldExpr *spec : speces_) {
-      delete spec;
-    }
-    speces_.clear();
-  }
+  virtual ~RowTuple() = default;
 
   void set_record(Record *record)
   {
@@ -184,15 +179,10 @@ public:
   void set_schema(const Table *table, const std::vector<FieldMeta> *fields)
   {
     table_ = table;
-    // fix:join当中会多次调用右表的open,open当中会调用set_scheme，从而导致tuple当中会存储
-    // 很多无意义的field和value，因此需要先clear掉
-    for (FieldExpr *spec : speces_) {
-      delete spec;
-    }
-    this->speces_.clear();
-    this->speces_.reserve(fields->size());
+    speces_.clear();
+    speces_.reserve(fields->size());
     for (const FieldMeta &field : *fields) {
-      speces_.push_back(new FieldExpr(table, &field));
+      speces_.push_back(std::make_unique<FieldExpr>(table, &field));
     }
     null_bitmap_start = 0;
     for (const auto &trxField : table->table_meta().trx_fields()) {
@@ -209,12 +199,20 @@ public:
       return RC::INVALID_ARGUMENT;
     }
 
-    FieldExpr       *field_expr = speces_[index];
+    const FieldExpr *field_expr = speces_[index].get();
     const FieldMeta *field_meta = field_expr->field().meta();
-    cell.set_type(field_meta->type());
     if (bitmap->get_bit(index)) {
       cell.set_null();
+      return RC::SUCCESS;
+    }
+    if (field_meta->type() == AttrType::TEXTS) {
+      TextData text_data;
+      memcpy(&text_data, this->record_->data() + field_meta->offset(), field_meta->len());
+      TextUtils::load_text(table_, &text_data);
+      cell.set_type(AttrType::TEXTS);
+      cell.set_text(text_data.str, text_data.len, true);
     } else {
+      cell.set_type(field_meta->type());
       cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     }
     return RC::SUCCESS;
@@ -229,18 +227,36 @@ public:
       return RC::INVALID_ARGUMENT;
     }
 
-    FieldExpr       *field_expr = speces_[index];
+    const FieldExpr *field_expr = speces_[index].get();
     const FieldMeta *field_meta = field_expr->field().meta();
     if (data == nullptr) {
-      memcpy(this->record_->data() + field_meta->offset(), cell.data(), cell.data_length());
+      if (field_meta->type() == AttrType::TEXTS && !cell.is_null()) {
+        TextData text_data = {
+            .len = static_cast<size_t>(cell.length()),
+            .str = reinterpret_cast<const TextData *>(cell.data())->str,
+        };
+        TextUtils::dump_text(table_, &text_data);
+        memcpy(this->record_->data() + field_meta->offset(), &text_data, cell.data_length());
+      } else {
+        memcpy(this->record_->data() + field_meta->offset(), cell.data(), cell.data_length());
+      }
       if (cell.is_null()) {
         bitmap->set_bit(field_meta->field_id());  // 设置 null bitmap
       } else {
         bitmap->clear_bit(field_meta->field_id());
       }
     } else {
+      if (field_meta->type() == AttrType::TEXTS && !cell.is_null()) {
+        TextData text_data = {
+            .len = static_cast<size_t>(cell.length()),
+            .str = reinterpret_cast<const TextData *>(cell.data())->str,
+        };
+        TextUtils::dump_text(table_, &text_data);
+        memcpy(data + field_meta->offset(), &text_data, cell.data_length());
+      } else {
+        memcpy(data + field_meta->offset(), cell.data(), cell.data_length());
+      }
       Bitmap new_bitmap(data, null_bitmap_start);
-      memcpy(data + field_meta->offset(), cell.data(), cell.data_length());
       if (cell.is_null()) {
         new_bitmap.set_bit(field_meta->field_id());  // 设置 null bitmap
       } else {
@@ -267,7 +283,7 @@ public:
     }
 
     for (size_t i = 0; i < speces_.size(); ++i) {
-      const FieldExpr *field_expr = speces_[i];
+      const FieldExpr *field_expr = speces_[i].get();
       const Field     &field      = field_expr->field();
       if (0 == strcmp(field_name, field.field_name())) {
         return cell_at(i, cell);
@@ -293,11 +309,11 @@ public:
   const Record &record() const { return *record_; }
 
 private:
-  Record                  *record_ = nullptr;
-  const Table             *table_  = nullptr;
-  std::vector<FieldExpr *> speces_;
-  std::unique_ptr<Bitmap>  bitmap            = nullptr;  // 用于标记字段是否为 NULL
-  int32_t                  null_bitmap_start = 0;
+  Record                                 *record_ = nullptr;
+  const Table                            *table_  = nullptr;
+  std::vector<std::unique_ptr<FieldExpr>> speces_;
+  std::unique_ptr<Bitmap>                 bitmap            = nullptr;
+  int32_t                                 null_bitmap_start = 0;
 };
 
 /**
@@ -409,6 +425,7 @@ public:
     return RC::NOTFOUND;
   }
 
+  // 将一个 Tuple 转换为 ValueListTuple
   static RC make(const Tuple &tuple, ValueListTuple &value_list)
   {
     const int cell_num = tuple.cell_num();
