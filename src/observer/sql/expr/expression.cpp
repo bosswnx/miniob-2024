@@ -1215,6 +1215,7 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
     return rc;
   }
   auto tuple_ = physical_operator_->current_tuple();
+  // 子查询的结果中，tuple 只能有一个 cell。这里应该不会出现tuple的cell数大于1的情况（在上层就已经排除了）
   if (tuple_->cell_num() > 1) {
     LOG_WARN("tuple cell count is not 1");
     close_physical_operator(); // 关闭子查询算子

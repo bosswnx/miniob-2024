@@ -17,15 +17,21 @@ RC UpdatePhysicalOperator::open(Trx *trx)
       for (size_t i = 0; i < exprs_.size(); i++) {
         Value cell;
         RC    rc = exprs_[i]->get_value(*tuple, cell);
-        if (OB_FAIL(rc)) {
+
+        // 子查询返回空值的情况
+        if (rc == RC::RECORD_EOF && field_metas_[i].nullable()) {
+          cell.set_null();
+        } else if (OB_FAIL(rc)) {
           LOG_WARN("cannot get value from expression: %s", strrc(rc));
         }
+
         if (cell.is_null() && !field_metas_[i].nullable()) {
           LOG_WARN("field %s is not nullable, but the value is null", field_metas_[i].name());
           return RC::INVALID_ARGUMENT;
         }
+
+        // we get the value again to check if the subquery is legal
         if (exprs_[i]->type() == ExprType::SUB_QUERY) {
-          // we get the value again to check if the subquery is legal
           Value test_cell_;
           RC rc_ = exprs_[i]->get_value(*tuple, test_cell_);
           if (rc_ != RC::RECORD_EOF) {
