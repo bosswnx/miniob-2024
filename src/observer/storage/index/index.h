@@ -42,7 +42,7 @@ public:
 
   const IndexMeta &index_meta() const { return index_meta_; }
 
-  const FieldMeta &field_meta() const { return field_meta_; }
+  const std::vector<FieldMeta> &field_metas() const { return index_meta_.field_metas(); }
 
   /**
    * @brief 插入一条数据
@@ -63,15 +63,13 @@ public:
   /**
    * @brief 创建一个索引数据的扫描器
    *
-   * @param left_key 要扫描的左边界
-   * @param left_len 左边界的长度
+   * @param left_keys 要扫描的左边界
    * @param left_inclusive 是否包含左边界
-   * @param right_key 要扫描的右边界
-   * @param right_len 右边界的长度
+   * @param right_keys 要扫描的右边界
    * @param right_inclusive 是否包含右边界
    */
-  virtual IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive, const char *right_key,
-      int right_len, bool right_inclusive) = 0;
+  virtual IndexScanner *create_scanner(const std::vector<const char *> &left_keys, bool left_inclusive,
+      const std::vector<const char *> &right_keys, bool right_inclusive) = 0;
 
   /**
    * @brief 同步索引数据到磁盘
@@ -80,11 +78,10 @@ public:
   virtual RC sync() = 0;
 
 protected:
-  RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
+  RC init(const IndexMeta &index_meta);
 
 protected:
   IndexMeta index_meta_;  ///< 索引的元数据
-  FieldMeta field_meta_;  ///< 索引了哪个字段
 };
 
 /**

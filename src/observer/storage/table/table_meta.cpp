@@ -155,21 +155,31 @@ int TableMeta::null_bitmap_start() const { return null_bitmap_start_; }
 const IndexMeta *TableMeta::index(const char *name) const
 {
   for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.name(), name)) {
+    if (0 == strcmp(index.name().c_str(), name)) {
       return &index;
     }
   }
   return nullptr;
 }
 
-const IndexMeta *TableMeta::find_index_by_field(const char *field) const
+const IndexMeta *TableMeta::find_index_by_fields(const std::vector<const char *> &field_names) const
 {
+  const IndexMeta *found_index = nullptr;
   for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.field(), field)) {
-      return &index;
+    bool found = true;
+    for (int i = 0; i < index.field_metas().size(); i++) {
+      // b+tree 的索引字段是有顺序的，所以直接按顺序比较
+      if (index.field_metas()[i].name() != field_names[i]) {
+        found = false;
+        break;
+      }
+    }
+    if (found) {
+      found_index = &index;
+      break;
     }
   }
-  return nullptr;
+  return found_index;
 }
 
 const IndexMeta *TableMeta::index(int i) const { return &indexes_[i]; }

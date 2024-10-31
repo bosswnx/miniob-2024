@@ -72,7 +72,7 @@ float db_str_to_float(const char *str) {
     float this_value = 0;
     bool entering_dot = false;
     int dot_index = 1;
-    for (int i = 0; i < strlen(str); i++) {
+    for (size_t i = 0; i < strlen(str); i++) {
       if (str[i] >= 48 && str[i] <= 57) {
         if (!entering_dot) {
           this_value = this_value * 10 + str[i] - 48;
