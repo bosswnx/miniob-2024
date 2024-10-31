@@ -648,6 +648,40 @@ expression_list:
       $$ = new std::vector<std::unique_ptr<Expression>>;
       $$->emplace_back($1);
     }
+    | expression ID{
+      $$ = new std::vector<std::unique_ptr<Expression>>;
+      $1->set_alias($2);
+      $$->emplace_back($1);
+      free($2);
+    }
+    | expression AS ID{
+      $$ = new std::vector<std::unique_ptr<Expression>>;
+      $1->set_alias($3);
+      $$->emplace_back($1);
+      free($3);
+    }
+    | expression ID COMMA expression_list
+    {
+      if ($4 != nullptr) {
+        $$ = $4;
+      } else {
+        $$ = new std::vector<std::unique_ptr<Expression>>;
+      }
+      $1->set_alias($2);
+      $$->emplace($$->begin(), $1);
+      free($2);
+    }
+    | expression AS ID COMMA expression_list
+    {
+      if ($5 != nullptr) {
+        $$ = $5;
+      } else {
+        $$ = new std::vector<std::unique_ptr<Expression>>;
+      }
+      $1->set_alias($3);
+      $$->emplace($$->begin(), $1);
+      free($3);
+    }
     | expression COMMA expression_list
     {
       if ($3 != nullptr) {
@@ -716,20 +750,6 @@ expression:
     | rel_attr {
       RelAttrSqlNode *node = $1;
       $$ = new UnboundFieldExpr(node->relation_name, node->attribute_name);
-      $$->set_name(token_name(sql_string, &@$));
-      delete $1;
-    }
-    | rel_attr ID{
-      // field's alias
-      RelAttrSqlNode *node = $1;
-      $$ = new UnboundFieldExpr(node->relation_name, node->attribute_name, $2);
-      $$->set_name(token_name(sql_string, &@$));
-      delete $1;
-    }
-    | rel_attr AS ID{
-      // field's alias
-      RelAttrSqlNode *node = $1;
-      $$ = new UnboundFieldExpr(node->relation_name, node->attribute_name, $3);
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
     }

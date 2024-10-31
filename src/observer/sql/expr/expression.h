@@ -135,6 +135,10 @@ public:
    */
   virtual RC eval(Chunk &chunk, std::vector<uint8_t> &select) { return RC::UNIMPLEMENTED; }
 
+  void set_alias(const std::string &alias) { alias_ = alias; }
+  const char *alias() const { return alias_.c_str(); }
+  const std::string alias_std_string() const { return alias_; }
+
 protected:
   /**
    * @brief 表达式在下层算子返回的 chunk 中的位置
@@ -146,6 +150,8 @@ protected:
 
 private:
   std::string name_;
+  
+  std::string alias_;
 };
 
 class StarExpr : public Expression
@@ -169,8 +175,8 @@ private:
 class UnboundFieldExpr : public Expression
 {
 public:
-  UnboundFieldExpr(const std::string &table_name, const std::string &field_name, const std::string &alias = "")
-      : table_name_(table_name), field_name_(field_name), alias_(alias)
+  UnboundFieldExpr(const std::string &table_name, const std::string &field_name)
+      : table_name_(table_name), field_name_(field_name)
   {}
 
   virtual ~UnboundFieldExpr() = default;
@@ -184,18 +190,14 @@ public:
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
-  const char *alias() const { return alias_.c_str(); }
-  const std::string alias_std_string() const { return alias_; }
 
   // setter
-  void set_alias(const std::string &alias) { alias_ = alias; }
   void set_field_name(const std::string &field_name) { field_name_ = field_name; }
   void set_table_name(const std::string &table_name) { table_name_ = table_name; }
 
 private:
   std::string table_name_;
   std::string field_name_;
-  std::string alias_;
 };
 
 /**
@@ -228,13 +230,8 @@ public:
 
   RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
 
-  // alias
-  void set_alias(const std::string &alias) { alias_ = alias; }
-  const char *alias() const { return alias_.c_str(); }
-
 private:
   Field field_;
-  std::string alias_;
 };
 
 /**
