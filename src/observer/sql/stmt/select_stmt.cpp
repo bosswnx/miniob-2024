@@ -171,8 +171,13 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
 
     if (!select_sql.relations[i].alias.empty()) {
       // 非空才存，防止重复存到空的 alias 导致 duplicate error。
-      // 检查 alias 是否重复
-      if (table_map.find(select_sql.relations[i].alias) != table_map.end()) {
+      
+      // if (table_map.find(select_sql.relations[i].alias) != table_map.end()) {
+      //   LOG_WARN("duplicate alias found in from statement: %s", select_sql.relations[i].alias.c_str());
+      //   return RC::INVALID_ARGUMENT;
+      // }
+      // 在alias2name中检查 alias 是否重复
+      if (alias2name->find(select_sql.relations[i].alias) != alias2name->end()) {
         LOG_WARN("duplicate alias found in from statement: %s", select_sql.relations[i].alias.c_str());
         return RC::INVALID_ARGUMENT;
       }
