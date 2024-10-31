@@ -719,10 +719,10 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
     }
-    | rel_attr ID{
+    | rel_attr AS ID{
       // field's alias
       RelAttrSqlNode *node = $1;
-      $$ = new UnboundFieldExpr(node->relation_name, node->attribute_name, $2);
+      $$ = new UnboundFieldExpr(node->relation_name, node->attribute_name, $3);
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
     }
@@ -755,6 +755,12 @@ rel_attr:
       $$->attribute_name = $3;
       free($1);
       free($3);
+    }
+    | ID DOT '*' {
+      $$ = new RelAttrSqlNode;
+      $$->relation_name  = $1;
+      $$->attribute_name = "*";
+      free($1);
     }
     ;
 
