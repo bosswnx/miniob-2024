@@ -107,7 +107,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
 
   if (name2alias == nullptr) name2alias = std::make_shared<std::unordered_map<string, string>>();
   if (alias2name == nullptr) alias2name = std::make_shared<std::unordered_map<string, string>>();
-  if (loaded_relation_names == nullptr) loaded_relation_names =  std::make_shared<std::vector<string>>();
+  if (loaded_relation_names == nullptr) loaded_relation_names = std::make_shared<std::vector<string>>();
 
   BinderContext binder_context;
 
@@ -160,6 +160,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
       name2alias->insert({table_name, select_sql.relations[i].alias});
       alias2name->insert({select_sql.relations[i].alias, table_name});
     }
+
+    loaded_relation_names->push_back(table_name);
 
   }
 
@@ -263,7 +265,14 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
     if (condition.left_expr != nullptr && condition.left_expr->type() == ExprType::SUB_QUERY) {
       SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.left_expr.get());
       Stmt         *stmt          = nullptr;
-      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, name2alias, alias2name);
+      RC            rc            = SelectStmt::create(
+        db, 
+        subquery_expr->sub_query_sn()->selection, 
+        stmt, 
+        name2alias, 
+        alias2name, 
+        loaded_relation_names
+      );
       if (rc != RC::SUCCESS) {
         LOG_WARN("cannot construct subquery stmt");
         return rc;
@@ -278,7 +287,14 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
     if (condition.right_expr != nullptr && condition.right_expr->type() == ExprType::SUB_QUERY) {
       SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.right_expr.get());
       Stmt         *stmt          = nullptr;
-      RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, name2alias, alias2name);
+      RC            rc            = SelectStmt::create(
+        db,
+        subquery_expr->sub_query_sn()->selection, 
+        stmt, 
+        name2alias, 
+        alias2name, 
+        loaded_relation_names
+      );
       if (rc != RC::SUCCESS) {
         LOG_WARN("cannot construct subquery stmt");
         return rc;
