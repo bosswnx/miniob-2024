@@ -274,7 +274,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
         return rc_;
       }
       subquery_expr->set_stmt(unique_ptr<SelectStmt>(static_cast<SelectStmt *>(stmt)));
-    } else if (condition.right_expr != nullptr && condition.right_expr->type() == ExprType::SUB_QUERY) {
+    }
+    if (condition.right_expr != nullptr && condition.right_expr->type() == ExprType::SUB_QUERY) {
       SubqueryExpr *subquery_expr = static_cast<SubqueryExpr *>(condition.right_expr.get());
       Stmt         *stmt          = nullptr;
       RC            rc            = SelectStmt::create(db, subquery_expr->sub_query_sn()->selection, stmt, name2alias, alias2name);
