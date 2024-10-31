@@ -108,7 +108,9 @@ RC FloatType::cast_to(const Value &val, AttrType type, Value &result) const
 {
   switch (type) {
     case AttrType::INTS: {
-      int to = int(val.value_.float_value_);
+      // int to = int(val.value_.float_value_);
+      // round
+      int to = val.value_.float_value_ > 0 ? int(val.value_.float_value_ + 0.5) : int(val.value_.float_value_ - 0.5);
       result.set_int(to);
       break;
     }
