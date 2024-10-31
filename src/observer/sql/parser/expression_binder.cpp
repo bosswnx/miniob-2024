@@ -221,6 +221,11 @@ RC ExpressionBinder::bind_unbound_field_expression(
       }
     }
 
+    if (!found) {
+      LOG_INFO("no such field in from list: %s", field_name);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+
   } else {
     table = context_.find_table(table_name);
     if (nullptr == table) {

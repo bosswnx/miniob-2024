@@ -41,7 +41,8 @@ std::shared_ptr<std::unordered_map<string, string>> field_alias2name) {
    expr->type() == ExprType::SUB_QUERY || 
    expr->type() == ExprType::SPECIAL_PLACEHOLDER ||
    expr->type() == ExprType::VALUES ||
-   expr->type() == ExprType::STAR) {
+   expr->type() == ExprType::STAR ||
+   expr->type() == ExprType::VECTOR_DISTANCE_EXPR){
     // select * from table_alias_1 t1 where id in (select t2.id from table_alias_2 t2 where t2.col2 >= t1.col1);
     // subquery 单独处理
     return RC::SUCCESS;
