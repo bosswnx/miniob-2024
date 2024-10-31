@@ -34,7 +34,9 @@ SelectStmt::~SelectStmt()
 }
 
 
-RC SelectStmt::convert_alias_to_name(Expression *expr, std::shared_ptr<std::unordered_map<string, string>> alias2name) {
+RC SelectStmt::convert_alias_to_name(Expression *expr, 
+std::shared_ptr<std::unordered_map<string, string>> alias2name,
+std::shared_ptr<std::unordered_map<string, string>> field_alias2name) {
    if (expr->type() == ExprType::VALUE || 
    expr->type() == ExprType::SUB_QUERY || 
    expr->type() == ExprType::SPECIAL_PLACEHOLDER ||
@@ -47,14 +49,14 @@ RC SelectStmt::convert_alias_to_name(Expression *expr, std::shared_ptr<std::unor
   if (expr->type() == ExprType::ARITHMETIC) {
     ArithmeticExpr *arith_expr = static_cast<ArithmeticExpr *>(expr);
     if (arith_expr->left() != nullptr) {
-      RC rc = SelectStmt::convert_alias_to_name(arith_expr->left().get(), alias2name);
+      RC rc = SelectStmt::convert_alias_to_name(arith_expr->left().get(), alias2name, field_alias2name);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to check parent relation");
         return rc;
       }
     }
     if (arith_expr->right() != nullptr) {
-      RC rc = SelectStmt::convert_alias_to_name(arith_expr->right().get(), alias2name);
+      RC rc = SelectStmt::convert_alias_to_name(arith_expr->right().get(), alias2name, field_alias2name);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to check parent relation");
         return rc;
@@ -68,30 +70,47 @@ RC SelectStmt::convert_alias_to_name(Expression *expr, std::shared_ptr<std::unor
       LOG_WARN("invalid aggre expr");
       return RC::INVALID_ARGUMENT;
     }
-    RC rc = SelectStmt::convert_alias_to_name(aggre_expr->child().get(), alias2name);
+    RC rc = SelectStmt::convert_alias_to_name(aggre_expr->child().get(), alias2name, field_alias2name);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to check parent relation");
       return rc;
     }
     return rc;
   }
+  
   if (expr->type() != ExprType::UNBOUND_FIELD) {
     LOG_WARN("convert_alias_to_name: invalid expr type: %d. It should be UnoundField.", expr->type());
   }
   auto ub_field_expr = static_cast<UnboundFieldExpr *>(expr);
+
+  // 替换 field 的表的别名为真实的表名
   if (alias2name->find(ub_field_expr->table_name()) != alias2name->end()) {
     // 如果在 alias2name 中找到了，说明是别名，需要替换为真实的表名
-    ub_field_expr->set_alias(ub_field_expr->table_name());
-    ub_field_expr->set_table_name((*alias2name)[ub_field_expr->table_name()]);
-    LOG_DEBUG("convert alias to name: %s -> %s",ub_field_expr->alias(), ub_field_expr->table_name());
+    std::string true_table_name = (*alias2name)[ub_field_expr->table_name()];
+    LOG_DEBUG("convert alias to name: %s -> %s",ub_field_expr->table_name(), true_table_name.c_str());
+    ub_field_expr->set_table_name(true_table_name);
   }
+
+  // 替换 field 的别名为真实的字段名
+  if (field_alias2name != nullptr) {
+    if (field_alias2name->find(ub_field_expr->field_name()) != field_alias2name->end()) {
+      // 如果在 field_alias2name 中找到了，说明是别名，需要替换为真实的字段名
+      std::string true_field_name = (*field_alias2name)[ub_field_expr->field_name()];
+      LOG_DEBUG("convert alias(field) to name: %s -> %s",ub_field_expr->field_name(), true_field_name.c_str());
+      ub_field_expr->set_alias(ub_field_expr->field_name());
+      ub_field_expr->set_field_name(true_field_name);
+    }
+  }
+
   return RC::SUCCESS;
 }
 
 RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   std::shared_ptr<std::unordered_map<string, string>> name2alias,
   std::shared_ptr<std::unordered_map<string, string>> alias2name,
-  std::shared_ptr<std::vector<string>> loaded_relation_names)
+  std::shared_ptr<std::vector<string>> loaded_relation_names,
+  std::shared_ptr<std::unordered_map<string, string>> field_alias2name
+  )
 {
   // loaded_relation_names 是有必要的。
   // name2alias 虽然也存了 relation names，但只存的是 alias 不为空时的 relation names。
@@ -108,6 +127,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   if (name2alias == nullptr) name2alias = std::make_shared<std::unordered_map<string, string>>();
   if (alias2name == nullptr) alias2name = std::make_shared<std::unordered_map<string, string>>();
   if (loaded_relation_names == nullptr) loaded_relation_names = std::make_shared<std::vector<string>>();
+  if (field_alias2name == nullptr) field_alias2name = std::make_shared<std::unordered_map<string, string>>();
 
   BinderContext binder_context;
 
@@ -119,14 +139,15 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   // 由于处理子查询是递归进行的，只会由外向内传，所以内层的 sub select 
   // 会额外拥有外层扫到的 table，而外层不会。
   for (auto &rel_name : *loaded_relation_names) {
-    // TODO(Soulter): 这里待优化，也就是缓存一下 table 实例的指针。
+    // TODO(Soulter): 这里待优化，也就是缓存一下 table 实例的指针。 UPDATE：不能缓存。
     Table *table = db->find_table(rel_name.c_str());
     if (nullptr == table) {
-      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), rel_name);
+      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), rel_name.c_str());
       return RC::SCHEMA_TABLE_NOT_EXIST;
     }
+    table->set_is_outer_table(true); // 对于当前查询来说，这是来自外层的表。做个标记。
     table_map.insert({rel_name, table});
-    LOG_DEBUG("add table from name2alias extraly(sub-query): %s", rel_name);
+    LOG_DEBUG("add table from name2alias extraly(sub-query): %s", rel_name.c_str());
   }
 
   // 然后才是处理 select 语句中的 from 语句
@@ -165,30 +186,39 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
 
   }
 
+  // 将 expressions（要 select 的表达式）中带有别名的表名替换为真实的表名
+  for (auto &expression : select_sql.expressions) {
+    RC rc = convert_alias_to_name(expression.get(), alias2name, nullptr);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to convert alias to name");
+      return rc;
+    }
+
+    // 如果是字段表达式并且有别名，将字段名和别名的映射存起来
+    if (expression->type() == ExprType::UNBOUND_FIELD) {
+      UnboundFieldExpr *ub_field_expr = static_cast<UnboundFieldExpr *>(expression.get());
+      if (!ub_field_expr->alias_std_string().empty()) {
+        field_alias2name->insert({ub_field_expr->alias_std_string(), ub_field_expr->field_name()});
+      }
+    }
+  }
+  
   // 将 conditions 中 **所有** 带有别名的表名替换为真实的表名
+  // 将 conditions 中 **所有** 使用别名 field 的表达式替换为真实的字段名
   for (auto &condition : select_sql.conditions) {
     if (condition.left_expr != nullptr) {
-      RC rc = convert_alias_to_name(condition.left_expr.get(), alias2name);
+      RC rc = convert_alias_to_name(condition.left_expr.get(), alias2name, field_alias2name);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to convert alias to name");
         return rc;
       }
     }
     if (condition.right_expr != nullptr) {
-      RC rc = convert_alias_to_name(condition.right_expr.get(), alias2name);
+      RC rc = convert_alias_to_name(condition.right_expr.get(), alias2name, field_alias2name);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to convert alias to name");
         return rc;
       }
-    }
-  }
-
-  // 将 expressions（要 select 的表达式）中带有别名的表名替换为真实的表名
-  for (auto &expression : select_sql.expressions) {
-    RC rc = convert_alias_to_name(expression.get(), alias2name);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to convert alias to name");
-      return rc;
     }
   }
 
@@ -271,7 +301,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
         stmt, 
         name2alias, 
         alias2name, 
-        loaded_relation_names
+        loaded_relation_names,
+        field_alias2name
       );
       if (rc != RC::SUCCESS) {
         LOG_WARN("cannot construct subquery stmt");
@@ -293,7 +324,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
         stmt, 
         name2alias, 
         alias2name, 
-        loaded_relation_names
+        loaded_relation_names,
+        field_alias2name
       );
       if (rc != RC::SUCCESS) {
         LOG_WARN("cannot construct subquery stmt");

@@ -169,8 +169,8 @@ private:
 class UnboundFieldExpr : public Expression
 {
 public:
-  UnboundFieldExpr(const std::string &table_name, const std::string &field_name)
-      : table_name_(table_name), field_name_(field_name)
+  UnboundFieldExpr(const std::string &table_name, const std::string &field_name, const std::string &alias = "")
+      : table_name_(table_name), field_name_(field_name), alias_(alias)
   {}
 
   virtual ~UnboundFieldExpr() = default;
@@ -185,6 +185,7 @@ public:
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
   const char *alias() const { return alias_.c_str(); }
+  const std::string alias_std_string() const { return alias_; }
 
   // setter
   void set_alias(const std::string &alias) { alias_ = alias; }

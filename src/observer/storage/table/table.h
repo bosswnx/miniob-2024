@@ -129,6 +129,9 @@ public:
 
   std::string text_data_file() const;
 
+  bool is_outer_table() const { return is_outer_table_; }
+  void set_is_outer_table(bool is_outer_table) { is_outer_table_ = is_outer_table; }
+
 private:
   Db                *db_ = nullptr;
   string             base_dir_;
@@ -136,4 +139,6 @@ private:
   DiskBufferPool    *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
   RecordFileHandler *record_handler_   = nullptr;  /// 记录操作
   vector<Index *>    indexes_;
+
+  bool is_outer_table_ = false; // 子查询用。判断是否是外层查询的表
 };
