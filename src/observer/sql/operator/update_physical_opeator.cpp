@@ -14,6 +14,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     auto   tuple  = dynamic_cast<RowTuple *>(tuple_);
     ASSERT(tuple != nullptr, "tuple cannot cast to RowTuple here!");
     rc = table_->visit_record(tuple->record().rid(), [this, tuple, trx, &updateIndexTasks](Record &record) {
+      std::vector<Value> cells_to_update; // 先存，防止有一个 field 更新异常导致部分写入。
       for (size_t i = 0; i < exprs_.size(); i++) {
         Value cell;
         RC    rc = exprs_[i]->get_value(*tuple, cell);
@@ -35,7 +36,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
           Value test_cell_;
           RC rc_ = exprs_[i]->get_value(*tuple, test_cell_);
           if (rc_ != RC::RECORD_EOF) {
-            LOG_WARN("subquery should return only one value");
+            LOG_WARN("update: subquery should return only one value");
             return RC::INVALID_ARGUMENT;
           }
         }
@@ -49,8 +50,13 @@ RC UpdatePhysicalOperator::open(Trx *trx)
           }
           cell = to_value;
         }
-        tuple->set_cell_at(field_metas_[i].field_id(), cell, record.data());
+        // tuple->set_cell_at(field_metas_[i].field_id(), cell, record.data());
+        cells_to_update.push_back(cell);
       }
+      for (size_t i = 0; i<cells_to_update.size(); ++i) 
+        tuple->set_cell_at(field_metas_[i].field_id(), cells_to_update[i], record.data());
+      cells_to_update.clear();
+
       updateIndexTasks.push_back([this, record] {
         // 复制 record 对象，避免 use-after-free
         return table_->update_index(record, field_metas_);
