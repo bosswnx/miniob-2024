@@ -202,6 +202,15 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
         field_alias2name->insert({ub_field_expr->alias_std_string(), ub_field_expr->field_name()});
       }
     }
+
+    // 如果是 StarExpr，检查是否有别名，如果有报错
+    if (expression->type() == ExprType::STAR) {
+      StarExpr *star_expr = static_cast<StarExpr *>(expression.get());
+      if (!star_expr->alias_std_string().empty()) {
+        LOG_WARN("alias found in star expression");
+        return RC::INVALID_ARGUMENT;
+      }
+    }
   }
   
   // 将 conditions 中 **所有** 带有别名的表名替换为真实的表名
