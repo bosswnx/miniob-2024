@@ -719,6 +719,13 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
     }
+    | rel_attr ID{
+      // field's alias
+      RelAttrSqlNode *node = $1;
+      $$ = new UnboundFieldExpr(node->relation_name, node->attribute_name, $2);
+      $$->set_name(token_name(sql_string, &@$));
+      delete $1;
+    }
     | rel_attr AS ID{
       // field's alias
       RelAttrSqlNode *node = $1;
