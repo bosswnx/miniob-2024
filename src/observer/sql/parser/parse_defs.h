@@ -93,6 +93,8 @@ struct ConditionSqlNode
   std::unique_ptr<Expression> left_expr;
   std::unique_ptr<Expression> right_expr;
   CompOp                      comp_op;
+  // 类型 and 或者 or
+  char conjunction_type = 0; // 0: no conjunction, 1: and, 2: or
 };
 
 struct JoinSqlNode

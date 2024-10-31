@@ -100,6 +100,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         INNER_JOIN
         WHERE
         AND
+        OR
         SET
         ON
         IN
@@ -718,6 +719,13 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
     }
+    | rel_attr ID{
+      // field's alias
+      RelAttrSqlNode *node = $1;
+      $$ = new UnboundFieldExpr(node->relation_name, node->attribute_name, $2);
+      $$->set_name(token_name(sql_string, &@$));
+      delete $1;
+    }
     | '*' {
       $$ = new StarExpr();
     }
@@ -834,11 +842,19 @@ condition_list:
     }
     | condition {
       $$ = new std::vector<ConditionSqlNode>;
+      $1->conjunction_type = 0;
       $$->push_back(std::move(*$1));
       delete $1;
     }
     | condition AND condition_list {
       $$ = $3;
+      $1->conjunction_type = 1;
+      $$->push_back(std::move(*$1));
+      delete $1;
+    }
+    | condition OR condition_list {
+      $$ = $3;
+      $1->conjunction_type = 2;
       $$->push_back(std::move(*$1));
       delete $1;
     }

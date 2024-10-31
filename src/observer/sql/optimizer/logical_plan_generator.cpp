@@ -252,9 +252,17 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
     // }
   }
 
+  // conjunction type 确定
+  // 暂时支持纯 and 或者纯 or
+  ConjunctionExpr::Type conjunction_type = ConjunctionExpr::Type::AND;
+  if (filter_stmt->conjunction_types_.size() > 0 && filter_stmt->conjunction_types_[0] == 2) {
+    // or
+    conjunction_type = ConjunctionExpr::Type::OR;
+  }
+
   unique_ptr<PredicateLogicalOperator> predicate_oper;
   if (!cmp_exprs.empty()) {
-    unique_ptr<ConjunctionExpr> conjunction_expr(new ConjunctionExpr(ConjunctionExpr::Type::AND, cmp_exprs));
+    unique_ptr<ConjunctionExpr> conjunction_expr(new ConjunctionExpr(conjunction_type, cmp_exprs));
     predicate_oper = std::make_unique<PredicateLogicalOperator>(std::move(conjunction_expr));
   }
 

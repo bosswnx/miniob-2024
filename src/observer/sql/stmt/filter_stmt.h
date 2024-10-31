@@ -39,4 +39,5 @@ public:
       std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt);
 
   std::vector<std::unique_ptr<Expression>> conditions_;
+  std::vector<char> conjunction_types_; // 连接 condition 的类型，0: no conjunction, 1: and, 2: or
 };

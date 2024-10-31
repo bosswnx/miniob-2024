@@ -78,6 +78,8 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
 
   auto *tmp_stmt = new FilterStmt();
   for (size_t i = 0; i < conditions.size(); i++) {
+    // 把连接符加入到 conjunction_types_ 中，用于后续的条件连接
+    tmp_stmt->conjunction_types_.push_back(conditions[i].conjunction_type);
     RC rc = expression_binder.bind_expression(conditions_exprs[i], bound_conditions);
     if (rc != RC::SUCCESS) {
       delete tmp_stmt;
