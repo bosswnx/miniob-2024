@@ -33,6 +33,12 @@ RC OrderByPhysicalOperator::open(Trx *trx)
   }
 
   PhysicalOperator *child = children_[0].get();
+
+  if (outer_tuple != nullptr) {
+    LOG_DEBUG("msg from order_by_phy_oper: we are in subquery");
+    child->set_outer_tuple(outer_tuple);
+  }
+
   RC                rc    = child->open(trx);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open child operator: %s", strrc(rc));

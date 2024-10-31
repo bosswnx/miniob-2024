@@ -31,6 +31,12 @@ RC HashGroupByPhysicalOperator::open(Trx *trx)
   ASSERT(children_.size() == 1, "group by operator only support one child, but got %d", children_.size());
 
   PhysicalOperator &child = *children_[0];
+
+  if (outer_tuple != nullptr) {
+    LOG_DEBUG("msg from hash_groupby_phy_oper: we are in subquery");
+    child.set_outer_tuple(outer_tuple);
+  }
+  
   RC                rc    = child.open(trx);
   if (OB_FAIL(rc)) {
     LOG_INFO("failed to open child operator. rc=%s", strrc(rc));

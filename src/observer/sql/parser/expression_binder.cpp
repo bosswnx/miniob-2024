@@ -193,6 +193,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
 
   const char *table_name = unbound_field_expr->table_name();
   const char *field_name = unbound_field_expr->field_name();
+  const char *alias = unbound_field_expr->alias();
 
   Table *table = nullptr;
   if (is_blank(table_name)) {
@@ -221,6 +222,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
 
     Field      field(table, field_meta);
     FieldExpr *field_expr = new FieldExpr(field);
+    field_expr->set_alias(alias);
     field_expr->set_name(field_name);
     bound_expressions.emplace_back(field_expr);
   }

@@ -48,6 +48,16 @@ RC PredicatePhysicalOperator::next()
       break;
     }
 
+    // 如果 outer_tuple 不为空，说明在子查询，我们用 JoinedTuple 来存储
+    if (outer_tuple != nullptr) {
+      LOG_DEBUG("msg from predicate_phy_oper: we are in subquery");
+      JoinedTuple *joined_tuple = new JoinedTuple();
+      joined_tuple->set_left(outer_tuple);
+      joined_tuple->set_right(tuple);
+      tuple = joined_tuple;
+    }
+    
+
     Value value;
     rc = expression_->get_value(*tuple, value, trx_);
     if (rc != RC::SUCCESS) {

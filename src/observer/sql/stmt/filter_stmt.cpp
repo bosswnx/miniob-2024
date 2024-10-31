@@ -25,6 +25,7 @@ FilterStmt::~FilterStmt() { conditions_.clear(); }
 RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
     std::vector<ConditionSqlNode> &conditions, FilterStmt *&stmt)
 {
+  // default_table 没有使用
   RC rc = RC::SUCCESS;
   stmt  = nullptr;
 
@@ -91,6 +92,7 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
   return rc;
 }
 
+// 没有任何 usage
 RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
     const RelAttrSqlNode &attr, Table *&table, const FieldMeta *&field)
 {

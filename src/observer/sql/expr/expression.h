@@ -184,10 +184,17 @@ public:
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
+  const char *alias() const { return alias_.c_str(); }
+
+  // setter
+  void set_alias(const std::string &alias) { alias_ = alias; }
+  void set_field_name(const std::string &field_name) { field_name_ = field_name; }
+  void set_table_name(const std::string &table_name) { table_name_ = table_name; }
 
 private:
   std::string table_name_;
   std::string field_name_;
+  std::string alias_;
 };
 
 /**
@@ -220,8 +227,13 @@ public:
 
   RC get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;
 
+  // alias
+  void set_alias(const std::string &alias) { alias_ = alias; }
+  const char *alias() const { return alias_.c_str(); }
+
 private:
   Field field_;
+  std::string alias_;
 };
 
 /**
@@ -563,7 +575,7 @@ public:
   void set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator);
   void set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator);
   void set_trx(Trx *trx);
-  RC   open_physical_operator() const;
+  RC   open_physical_operator(Tuple *outer_tuple) const;
   RC   close_physical_operator() const;
   void set_stmt(std::unique_ptr<SelectStmt> stmt);
   ParsedSqlNode* sub_query_sn();

@@ -91,6 +91,9 @@ public:
 
   std::vector<std::unique_ptr<PhysicalOperator>> &children() { return children_; }
 
+  void set_outer_tuple(Tuple *tuple) { outer_tuple = tuple; }
+
 protected:
   std::vector<std::unique_ptr<PhysicalOperator>> children_;
+  Tuple *outer_tuple = nullptr;
 };

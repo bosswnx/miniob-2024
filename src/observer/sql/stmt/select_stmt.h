@@ -40,7 +40,11 @@ public:
   StmtType type() const override { return StmtType::SELECT; }
 
 public:
-  static RC create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt);
+  static RC create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
+  std::shared_ptr<std::unordered_map<string, string>> name2alias = nullptr,
+  std::shared_ptr<std::unordered_map<string, string>> alias2name = nullptr,
+  std::shared_ptr<std::vector<string>> loaded_relation_names = nullptr);
+  static RC convert_alias_to_name(Expression *expr, std::shared_ptr<std::unordered_map<string, string>> alias2name);
 
 public:
   const std::vector<Table *> &tables() const { return tables_; }
