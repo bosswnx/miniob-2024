@@ -72,7 +72,7 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
       break;
     }
     case AttrType::TEXTS: {
-      if (val.length() >= 65535) {
+      if (val.length() > 65535) {
         LOG_WARN("text field length %d is greater than max length 65535", val.length());
         return RC::UNSUPPORTED;
       }
