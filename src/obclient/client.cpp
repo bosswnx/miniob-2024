@@ -35,7 +35,7 @@ See the Mulan PSL v2 for more details. */
 #include "readline/readline.h"
 #endif
 
-#define MAX_MEM_BUFFER_SIZE 8192
+#define MAX_MEM_BUFFER_SIZE 8192 * 1024
 #define PORT_DEFAULT 6789
 
 using namespace std;
@@ -156,6 +156,8 @@ Learn more about MiniOB at https://github.com/oceanbase/miniob
 
 )";
 
+char send_buf[MAX_MEM_BUFFER_SIZE];
+
 int main(int argc, char *argv[])
 {
   printf("%s", startup_tips);
@@ -185,8 +187,6 @@ int main(int argc, char *argv[])
   if (sockfd < 0) {
     return 1;
   }
-
-  char send_buf[MAX_MEM_BUFFER_SIZE];
 
   char *input_command = nullptr;
   while ((input_command = my_readline(prompt_str)) != nullptr) {
