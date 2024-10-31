@@ -108,15 +108,15 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   table_meta_.serialize(fs);
   fs.close();
 
-  bool has_text = false;
+  bool has_text_or_vector = false;
   for (const auto &attr : attributes) {
-    if (attr.type == AttrType::TEXTS) {
-      has_text = true;
+    if (attr.type == AttrType::TEXTS || attr.type == AttrType::VECTORS) {
+      has_text_or_vector = true;
       break;
     }
   }
-  if (has_text) {
-    std::string text_file = table_text_data_file(base_dir, name);
+  if (has_text_or_vector) {
+    std::string text_file = table_text_vector_data_file(base_dir, name);
     fd                    = ::open(text_file.c_str(), O_CREAT | O_EXCL | O_CLOEXEC, 0600);
     if (fd < 0) {
       if (EEXIST == errno) {
@@ -154,7 +154,7 @@ RC Table::drop(Db *db, const char *table_name, const char *base_dir)
 {
   std::string data_file_path = table_data_file(base_dir, table_name);
   std::string meta_file_path = table_meta_file(base_dir, table_name);
-  std::string text_file_path = table_text_data_file(base_dir_.c_str(), table_meta_.name());
+  std::string text_file_path = table_text_vector_data_file(base_dir_.c_str(), table_meta_.name());
   // TODO: delete index
   data_buffer_pool_->close_file();
   data_buffer_pool_ = nullptr;  // 防止析构函数中再次尝试关闭文件
@@ -359,6 +359,11 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
     TextData   text_data_updated = *text_data;
     TextUtils::dump_text(this, &text_data_updated);  // 不能原地修改value 中的TextData.offset
     memcpy(record_data + field->offset(), &text_data_updated, copy_len);
+  } else if (field->type() == AttrType::VECTORS) {
+    const auto vector_data         = reinterpret_cast<const VectorData *>(value.data());
+    VectorData vector_data_updated = *vector_data;
+    VectorUtils::dump_vector(this, &vector_data_updated);
+    memcpy(record_data + field->offset(), &vector_data_updated, copy_len);
   } else {
     memcpy(record_data + field->offset(), value.data(), copy_len);
   }
@@ -629,4 +634,7 @@ RC Table::sync()
   return rc;
 }
 
-std::string Table::text_data_file() const { return table_text_data_file(base_dir_.c_str(), table_meta_.name()); }
+std::string Table::text_vector_data_file() const
+{
+  return table_text_vector_data_file(base_dir_.c_str(), table_meta_.name());
+}

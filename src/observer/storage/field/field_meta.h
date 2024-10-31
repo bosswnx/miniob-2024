@@ -35,13 +35,14 @@ public:
   ~FieldMeta() = default;
 
   RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id,
-      bool nullable = false);
+      bool nullable = false, int vector_dim = 0);
 
 public:
   const char *name() const;
   AttrType    type() const;
   int         offset() const;
   int         len() const;
+  int         vector_dim() const;
   bool        visible() const;
   int         field_id() const;
   bool        nullable() const;
@@ -57,8 +58,9 @@ protected:
   string   name_;
   AttrType attr_type_;
   int      attr_offset_;
-  int      attr_len_;
+  int      attr_len_;  // 表示字段在行内所占的长度
   bool     visible_;
   int      field_id_;  // 从零递增的 id
   bool     nullable_;
+  int      vector_dim_;  // 只在 vector 字段使用
 };

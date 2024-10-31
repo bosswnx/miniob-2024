@@ -13,7 +13,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     Tuple *tuple_ = child->current_tuple(); // 获得当前正在更新的 tuple
     auto   tuple  = dynamic_cast<RowTuple *>(tuple_);
     ASSERT(tuple != nullptr, "tuple cannot cast to RowTuple here!");
-    rc = table_->visit_record(tuple->record().rid(), [this, tuple, trx, &updateIndexTasks](Record &record) {
+    rc = table_->visit_record(tuple->record().rid(), [this, tuple, &updateIndexTasks](Record &record) {
       for (size_t i = 0; i < exprs_.size(); i++) {
         Value cell;
         RC    rc = exprs_[i]->get_value(*tuple, cell);

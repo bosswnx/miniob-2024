@@ -15,70 +15,92 @@ By Nelson Boss 2024/10/13
 #include "common/type/vector_type.h"
 #include "common/value.h"
 
-int VectorType::compare(const Value &left, const Value &right) const
+int VectorType::compare(const Value &left_value, const Value &right_value) const
 {
-  ASSERT(left.attr_type() == AttrType::VECTORS && right.attr_type() == AttrType::VECTORS, "invalid type");
+  ASSERT(left_value.attr_type() == AttrType::VECTORS && right_value.attr_type() == AttrType::VECTORS, "invalid type");
   // 以字典序比较两个 vector<float> 的大小
-  vector<float> left_ = left.get_vector();
-  vector<float> right_ = right.get_vector();
+  const VectorData left  = left_value.get_vector();
+  const VectorData right = right_value.get_vector();
 
   int idx = 0;
-  while (idx < left_.size() && idx < right_.size()) {
-    if (left_[idx] < right_[idx]) {
+  while (idx < left.dim && idx < right.dim) {
+    if (left.vector[idx] < right.vector[idx]) {
       return -1;
-    } else if (left_[idx] > right_[idx]) {
+    } else if (left.vector[idx] > right.vector[idx]) {
       return 1;
     }
     idx++;
   }
-  if (idx < left_.size()) return 1;
-  else if (idx < right_.size()) return -1;
+  if (idx < left.dim) {
+    return 1;
+  }
+  if (idx < right.dim) {
+    return -1;
+  }
   return 0;
 }
 
-RC VectorType::add(const Value &left, const Value &right, Value &result) const {
-  if (left.length_ != right.length_) return RC::INVALID_ARGUMENT; // TODO(soulter): 需要支持广播吗
-  vector<float> res(left.length_);
-  vector<float> left_ = left.get_vector();
-  vector<float> right_ = right.get_vector();
-  for (int i=0; i<left.length_; ++i) {
-    res[i] = left_[i] + right_[i];
-  }
-  result.set_vector(res);
-  return RC::SUCCESS;
-}
-
-RC VectorType::subtract(const Value &left, const Value &right, Value &result) const {
-  if (left.length_ != right.length_) return RC::INVALID_ARGUMENT; // TODO(soulter): 需要支持广播吗
-  vector<float> res(left.length_);
-  vector<float> left_ = left.get_vector();
-  vector<float> right_ = right.get_vector();
-  for (int i=0; i<left.length_; ++i) {
-    res[i] = left_[i] - right_[i];
-  }
-  result.set_vector(res);
-  return RC::SUCCESS;
-}
-
-RC VectorType::multiply(const Value &left, const Value &right, Value &result) const {
-  if (left.length_ != right.length_) return RC::INVALID_ARGUMENT; // TODO(soulter): 需要支持广播吗
-  vector<float> res(left.length_);
-  vector<float> left_ = left.get_vector();
-  vector<float> right_ = right.get_vector();
-  for (int i=0; i<left.length_; ++i) {
-    res[i] = left_[i] * right_[i];
-  }
-  result.set_vector(res);
-  return RC::SUCCESS;
-}
-
-RC VectorType::max(const Value &left, const Value &right, Value &result) const
+RC VectorType::add(const Value &left_value, const Value &right_right, Value &result) const
 {
-  int cmp = compare(left, right);
+  const VectorData left  = left_value.get_vector();
+  const VectorData right = right_right.get_vector();
+
+  if (left.dim != right.dim) {
+    return RC::INVALID_ARGUMENT;  // TODO(soulter): 需要支持广播吗
+  }
+  VectorData res    = {.dim = left.dim};
+  auto       buffer = new float[left.dim];
+  for (int i = 0; i < left_value.length_; ++i) {
+    buffer[i] = left.vector[i] + right.vector[i];
+  }
+  res.vector = buffer;
+  result.set_vector(res, true);
+  return RC::SUCCESS;
+}
+
+RC VectorType::subtract(const Value &left_value, const Value &right_right, Value &result) const
+{
+  const VectorData left  = left_value.get_vector();
+  const VectorData right = right_right.get_vector();
+
+  if (left.dim != right.dim) {
+    return RC::INVALID_ARGUMENT;  // TODO(soulter): 需要支持广播吗
+  }
+  VectorData res    = {.dim = left.dim};
+  auto       buffer = new float[left.dim];
+  for (int i = 0; i < left_value.length_; ++i) {
+    buffer[i] = left.vector[i] - right.vector[i];
+  }
+  res.vector = buffer;
+  result.set_vector(res, true);
+  return RC::SUCCESS;
+}
+
+RC VectorType::multiply(const Value &left_value, const Value &right_right, Value &result) const
+{
+  const VectorData left  = left_value.get_vector();
+  const VectorData right = right_right.get_vector();
+
+  if (left.dim != right.dim) {
+    return RC::INVALID_ARGUMENT;  // TODO(soulter): 需要支持广播吗
+  }
+  VectorData res    = {.dim = left.dim};
+  auto       buffer = new float[left.dim];
+  for (int i = 0; i < left_value.length_; ++i) {
+    buffer[i] = left.vector[i] * right.vector[i];
+  }
+  res.vector = buffer;
+  result.set_vector(res, true);
+  return RC::SUCCESS;
+}
+
+RC VectorType::max(const Value &left_value, const Value &right_value, Value &result) const
+{
+  int cmp = compare(left_value, right_value);
   if (cmp > 0) {
-    result.set_vector(left.get_vector());
+    result.set_vector(left_value.value_.vector_value_);
   } else {
-    result.set_vector(right.get_vector());
+    result.set_vector(right_value.get_vector());
   }
   return RC::SUCCESS;
 }
@@ -119,15 +141,15 @@ int VectorType::cast_cost(AttrType type)
 RC VectorType::to_string(const Value &val, string &result) const
 {
   stringstream ss;
-  vector<float> vec = val.get_vector();
+  VectorData   vec = val.get_vector();
   ss << "[";
-  for (int i = 0; i < vec.size(); i++) {
-    if (vec[i] != vec[i]) {
-        break;
-    }
+  for (int i = 0; i < vec.dim; i++) {
+    // if (vec.vector[i] != vec.vector[i]) {
+    //     break;
+    // }
     // 最多保留两位小数，去掉末尾的0
     // ss << vec[i];
-    ss << std::fixed << std::setprecision(2) << vec[i];
+    ss << std::fixed << std::setprecision(2) << vec.vector[i];
     string temp = ss.str();
     temp.erase(temp.find_last_not_of('0') + 1, string::npos); // 去掉末尾的0
     if (temp.back() == '.') {
@@ -137,8 +159,8 @@ RC VectorType::to_string(const Value &val, string &result) const
     ss.clear();
     ss << temp;
 
-    if (i != vec.size() - 1) {
-        ss << ",";
+    if (i != vec.dim - 1) {
+      ss << ",";
     }
   }
   ss << "]";

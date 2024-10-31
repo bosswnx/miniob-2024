@@ -42,7 +42,7 @@ public:
   const std::vector<AttrInfoSqlNode> &attr_infos() const { return attr_infos_; }
   const StorageFormat                 storage_format() const { return storage_format_; }
 
-  static RC            create(Db *db, const CreateTableSqlNode &create_table, Stmt *&stmt);
+  static RC            create(Db *db, CreateTableSqlNode &create_table, Stmt *&stmt);
   static StorageFormat get_storage_format(const char *format_str);
 
 private:

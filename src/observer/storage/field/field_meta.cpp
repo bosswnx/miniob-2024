@@ -26,6 +26,7 @@ const static Json::StaticString FIELD_LEN("len");
 const static Json::StaticString FIELD_VISIBLE("visible");
 const static Json::StaticString FIELD_FIELD_ID("FIELD_id");
 const static Json::StaticString FIELD_NULLABLE("nullable");
+const static Json::StaticString FIELD_VECTOR_DIM("vector_dim");
 
 FieldMeta::FieldMeta() : attr_type_(AttrType::UNDEFINED), attr_offset_(-1), attr_len_(0), visible_(false), field_id_(0) {}
 
@@ -36,8 +37,8 @@ FieldMeta::FieldMeta(
   ASSERT(rc == RC::SUCCESS, "failed to init field meta. rc=%s", strrc(rc));
 }
 
-RC FieldMeta::init(
-    const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id, bool nullable)
+RC FieldMeta::init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id,
+    bool nullable, int vector_dim)
 {
   if (common::is_blank(name)) {
     LOG_WARN("Name cannot be empty");
@@ -57,6 +58,7 @@ RC FieldMeta::init(
   visible_     = visible;
   field_id_ = field_id;
   nullable_    = nullable;
+  vector_dim_  = vector_dim;
 
   LOG_INFO("Init a field with name=%s", name);
   return RC::SUCCESS;
@@ -69,6 +71,8 @@ AttrType FieldMeta::type() const { return attr_type_; }
 int FieldMeta::offset() const { return attr_offset_; }
 
 int FieldMeta::len() const { return attr_len_; }
+
+int FieldMeta::vector_dim() const { return vector_dim_; }
 
 bool FieldMeta::visible() const { return visible_; }
 
@@ -91,6 +95,7 @@ void FieldMeta::to_json(Json::Value &json_value) const
   json_value[FIELD_VISIBLE] = visible_;
   json_value[FIELD_FIELD_ID] = field_id_;
   json_value[FIELD_NULLABLE] = nullable_;
+  json_value[FIELD_VECTOR_DIM] = vector_dim_;
 }
 
 RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field)
@@ -107,6 +112,7 @@ RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field)
   const Json::Value &visible_value = json_value[FIELD_VISIBLE];
   const Json::Value &field_id_value = json_value[FIELD_FIELD_ID];
   const Json::Value &field_nullable = json_value[FIELD_NULLABLE];
+  const Json::Value &field_vector_dim = json_value[FIELD_VECTOR_DIM];
 
   if (!name_value.isString()) {
     LOG_ERROR("Field name is not a string. json value=%s", name_value.toStyledString().c_str());
@@ -137,6 +143,10 @@ RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field)
     LOG_ERROR("Field nullable is not a bool value. json value=%s", field_nullable.toStyledString().c_str());
     return RC::INTERNAL;
   }
+  if (!field_vector_dim.isInt()) {
+    LOG_ERROR("Field vector_dim is not a bool value. json value=%s", field_vector_dim.toStyledString().c_str());
+    return RC::INTERNAL;
+  }
 
   AttrType type = attr_type_from_string(type_value.asCString());
   if (AttrType::UNDEFINED == type) {
@@ -150,5 +160,6 @@ RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field)
   bool        visible = visible_value.asBool();
   int         field_id  = field_id_value.asInt();
   bool        nullable  = field_nullable.asBool();
-  return field.init(name, type, offset, len, visible, field_id, nullable);
+  int         vector_dim = field_vector_dim.asInt();
+  return field.init(name, type, offset, len, visible, field_id, nullable, vector_dim);
 }

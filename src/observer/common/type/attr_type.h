@@ -36,6 +36,19 @@ struct TextData
 
   // 以下内容不会保存在文件中
   const char *str;  // text加载到内存后的地址
+
+  static size_t field_size;
+};
+
+struct VectorData
+{
+  size_t offset;  // 向量数据在文件中的偏移
+  size_t dim;     // 向量的维度
+
+  // 以下内容不会保存在文件中
+  const float *vector;  // 向量加载到内存后的地址
+
+  static size_t field_size;
 };
 
 const char *attr_type_to_string(AttrType type);

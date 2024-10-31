@@ -92,7 +92,8 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
         attr_info.arr_len * attr_type_size(attr_info.type),
         true /*visible*/,
         i,
-        attr_info.nullable);
+        attr_info.nullable,
+        attr_info.dim);
     if (OB_FAIL(rc)) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;

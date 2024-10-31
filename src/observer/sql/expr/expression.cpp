@@ -1057,17 +1057,17 @@ RC VectorDistanceExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
   if (left_value.attr_type() != AttrType::VECTORS || right_value.attr_type() != AttrType::VECTORS) {
     return RC::INVALID_ARGUMENT;
   }
-  const std::vector<float> &left  = left_value.get_vector();
-  const std::vector<float> &right = right_value.get_vector();
-  if (left.size() != right.size()) {
+  const VectorData left  = left_value.get_vector();
+  const VectorData right = right_value.get_vector();
+  if (left.dim != right.dim) {
     return RC::INVALID_ARGUMENT;
   }
 
   switch (type_) {
     case Type::L2_DISTANCE: {
       float sum = 0;
-      for (size_t i = 0; i < left.size(); i++) {
-        sum += (left[i] - right[i]) * (left[i] - right[i]);
+      for (size_t i = 0; i < left.dim; i++) {
+        sum += (left.vector[i] - right.vector[i]) * (left.vector[i] - right.vector[i]);
       }
       sum = sqrt(sum);
       value.set_float(sum);
@@ -1076,18 +1076,18 @@ RC VectorDistanceExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
       float dot        = 0;
       float left_norm  = 0;
       float right_norm = 0;
-      for (size_t i = 0; i < left.size(); i++) {
-        dot += left[i] * right[i];
-        left_norm += left[i] * left[i];
-        right_norm += right[i] * right[i];
+      for (size_t i = 0; i < left.dim; i++) {
+        dot += left.vector[i] * right.vector[i];
+        left_norm += left.vector[i] * left.vector[i];
+        right_norm += right.vector[i] * right.vector[i];
       }
       float cosine = dot / (sqrt(left_norm) * sqrt(right_norm));
       value.set_float(1 - cosine);
     } break;
     case Type::INNER_PRODUCT: {
       float dot = 0;
-      for (size_t i = 0; i < left.size(); i++) {
-        dot += left[i] * right[i];
+      for (size_t i = 0; i < left.dim; i++) {
+        dot += left.vector[i] * right.vector[i];
       }
       value.set_float(dot);
     } break;
