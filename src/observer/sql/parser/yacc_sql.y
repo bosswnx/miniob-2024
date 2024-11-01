@@ -99,6 +99,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         FROM
         INNER_JOIN
         WHERE
+        HAVING
         AND
         OR
         SET
@@ -187,6 +188,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <value_list>          value_list
 %type <condition_list>      where
 %type <condition_list>      condition_list
+%type <condition_list>      having
 %type <join_list>           join_list
 %type <string>              storage_format
 %type <relation_list>       rel_list
@@ -605,7 +607,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT expression_list FROM rel_list join_list where group_by order_by
+    SELECT expression_list FROM rel_list join_list where group_by having order_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -649,11 +651,18 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $7;
       }
 
-      // order by
+      // having
       if ($8 != nullptr) {
-        $$->selection.order_by.swap(*$8);
-        std::reverse($$->selection.order_by.begin(), $$->selection.order_by.end());
+        $$->selection.havings.swap(*$8);
+        std::reverse($$->selection.havings.begin(), $$->selection.havings.end());
         delete $8;
+      }
+
+      // order by
+      if ($9 != nullptr) {
+        $$->selection.order_by.swap(*$9);
+        std::reverse($$->selection.order_by.begin(), $$->selection.order_by.end());
+        delete $9;
       }
     }
     ;
@@ -969,6 +978,16 @@ group_by:
       $$ = new std::vector<std::unique_ptr<Expression>>;
       $$->swap(*$3);
       delete $3;
+    }
+    ;
+
+having:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | HAVING condition_list {
+      $$ = $2;
     }
     ;
 

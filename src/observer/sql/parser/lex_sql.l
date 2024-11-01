@@ -112,6 +112,7 @@ AS                                      RETURN_TOKEN(AS);
 CALC                                    RETURN_TOKEN(CALC);
 FROM                                    RETURN_TOKEN(FROM);
 WHERE                                   RETURN_TOKEN(WHERE);
+HAVING                                  RETURN_TOKEN(HAVING);
 AND                                     RETURN_TOKEN(AND);
 OR                                      RETURN_TOKEN(OR);
 INSERT                                  RETURN_TOKEN(INSERT);

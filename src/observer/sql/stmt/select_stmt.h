@@ -52,6 +52,7 @@ public:
 public:
   const std::vector<Table *> &tables() const { return tables_; }
   FilterStmt                 *filter_stmt() const { return filter_stmt_; }
+  FilterStmt                 *filter_stmt_having() const { return filter_stmt_having_; }
 
   std::vector<std::unique_ptr<Expression>> &query_expressions() { return query_expressions_; }
   std::vector<std::unique_ptr<Expression>> &group_by() { return group_by_; }
@@ -62,6 +63,7 @@ public:
   std::vector<Table *>                     tables_;
   FilterStmt                              *filter_stmt_ = nullptr;
   std::vector<std::unique_ptr<Expression>> group_by_;
+  FilterStmt                              *filter_stmt_having_ = nullptr;
   std::vector<std::unique_ptr<Expression>> order_by_exprs_;
   std::vector<bool>                        order_by_descs_;
 };
