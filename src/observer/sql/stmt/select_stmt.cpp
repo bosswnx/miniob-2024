@@ -93,15 +93,16 @@ std::shared_ptr<std::unordered_map<string, string>> field_alias2name) {
   }
 
   // 替换 field 的别名为真实的字段名
-  if (field_alias2name != nullptr) {
-    if (field_alias2name->find(ub_field_expr->field_name()) != field_alias2name->end()) {
-      // 如果在 field_alias2name 中找到了，说明是别名，需要替换为真实的字段名
-      std::string true_field_name = (*field_alias2name)[ub_field_expr->field_name()];
-      LOG_DEBUG("convert alias(field) to name: %s -> %s",ub_field_expr->field_name(), true_field_name.c_str());
-      ub_field_expr->set_alias(ub_field_expr->field_name());
-      ub_field_expr->set_field_name(true_field_name);
-    }
-  }
+  // MYSQL 中，WHERE 不能使用别名
+  // if (field_alias2name != nullptr) {
+  //   if (field_alias2name->find(ub_field_expr->field_name()) != field_alias2name->end()) {
+  //     // 如果在 field_alias2name 中找到了，说明是别名，需要替换为真实的字段名
+  //     std::string true_field_name = (*field_alias2name)[ub_field_expr->field_name()];
+  //     LOG_DEBUG("convert alias(field) to name: %s -> %s",ub_field_expr->field_name(), true_field_name.c_str());
+  //     ub_field_expr->set_alias(ub_field_expr->field_name());
+  //     ub_field_expr->set_field_name(true_field_name);
+  //   }
+  // }
 
   return RC::SUCCESS;
 }
