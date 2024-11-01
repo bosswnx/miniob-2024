@@ -169,27 +169,30 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
     tables.push_back(table);
     table_map.insert({table_name, table});
 
+    // 检查 alias 重复
+    for (size_t j = i + 1; j < select_sql.relations.size(); j++) {
+      if (select_sql.relations[i].alias.empty() || select_sql.relations[j].alias.empty()) continue;
+      if (select_sql.relations[i].alias == select_sql.relations[j].alias) {
+        LOG_WARN("duplicate alias: %s", select_sql.relations[i].alias.c_str());
+        return RC::INVALID_ARGUMENT;
+      }
+    }
+
     if (!select_sql.relations[i].alias.empty()) {
       // 非空才存，防止重复存到空的 alias 导致 duplicate error。
-      
-      // if (table_map.find(select_sql.relations[i].alias) != table_map.end()) {
+      // 在alias2name中检查 alias 是否重复
+      // UPDATE: 不需要子表和外表的 alias 重复检查，因为外表的 alias 可以被子表的 alias 覆盖。
+      // if (alias2name->find(select_sql.relations[i].alias) != alias2name->end()) {
       //   LOG_WARN("duplicate alias found in from statement: %s", select_sql.relations[i].alias.c_str());
       //   return RC::INVALID_ARGUMENT;
       // }
-      // 在alias2name中检查 alias 是否重复
-      if (alias2name->find(select_sql.relations[i].alias) != alias2name->end()) {
-        LOG_WARN("duplicate alias found in from statement: %s", select_sql.relations[i].alias.c_str());
-        return RC::INVALID_ARGUMENT;
-      }
-      
+
       // 一切没问题之后，
       // 备用表名和别名的映射
       name2alias->insert({table_name, select_sql.relations[i].alias});
       alias2name->insert({select_sql.relations[i].alias, table_name});
     }
-
     loaded_relation_names->push_back(table_name);
-
   }
 
   // 将 expressions（要 select 的表达式）中带有别名的表名替换为真实的表名
