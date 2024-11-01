@@ -22,7 +22,7 @@ int VectorType::compare(const Value &left, const Value &right) const
   vector<float> left_ = left.get_vector();
   vector<float> right_ = right.get_vector();
 
-  int idx = 0;
+  size_t idx = 0;
   while (idx < left_.size() && idx < right_.size()) {
     if (left_[idx] < right_[idx]) {
       return -1;

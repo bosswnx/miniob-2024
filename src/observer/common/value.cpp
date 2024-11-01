@@ -328,7 +328,7 @@ void Value::set_value(const Value &value)
 void Value::set_string_from_other(const Value &other)
 {
   ASSERT(attr_type_ == AttrType::CHARS, "attr type is not CHARS");
-  if (own_data_ && other.value_.pointer_value_ != nullptr && length_ != 0) {
+  if (own_data_ && other.value_.pointer_value_ != nullptr) {
     this->value_.pointer_value_ = new char[this->length_ + 1];
     memcpy(this->value_.pointer_value_, other.value_.pointer_value_, this->length_);
     this->value_.pointer_value_[this->length_] = '\0';
@@ -338,7 +338,7 @@ void Value::set_string_from_other(const Value &other)
 void Value::set_text_from_other(const Value &other)
 {
   ASSERT(attr_type_ == AttrType::TEXTS, "attr type is not TEXTS");
-  if (own_data_ && other.value_.text_value_.str != nullptr && other.length_ != 0) {
+  if (own_data_ && other.value_.text_value_.str != nullptr) {
     this->length_ = other.length_;
     auto buffer   = new char[this->length_ + 1];
     memcpy(buffer, other.value_.text_value_.str, this->length_);

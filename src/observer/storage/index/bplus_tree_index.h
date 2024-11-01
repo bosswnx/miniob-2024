@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/index/bplus_tree.h"
 #include "storage/index/index.h"
+#include <string>
 
 /**
  * @brief B+树索引
@@ -27,8 +28,8 @@ public:
   BplusTreeIndex() = default;
   virtual ~BplusTreeIndex() noexcept;
 
-  RC create(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
-  RC open(Table *table, const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
+  RC create(Table *table, const std::string &file_name, const IndexMeta &index_meta);
+  RC open(Table *table, const std::string &file_name, const IndexMeta &index_meta);
   RC close();
 
   RC insert_entry(const char *record, const RID *rid) override;
@@ -37,8 +38,8 @@ public:
   /**
    * 扫描指定范围的数据
    */
-  IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive, const char *right_key,
-      int right_len, bool right_inclusive) override;
+  IndexScanner *create_scanner(const std::vector<const char *> &left_keys, bool left_inclusive,
+      const std::vector<const char *> &right_keys, bool right_inclusive) override;
 
   RC sync() override;
 
@@ -61,7 +62,7 @@ public:
   RC next_entry(RID *rid) override;
   RC destroy() override;
 
-  RC open(const char *left_key, int left_len, bool left_inclusive, const char *right_key, int right_len,
+  RC open(const std::vector<const char *> &left_keys, bool left_inclusive, const std::vector<const char *> &right_keys,
       bool right_inclusive);
 
 private:

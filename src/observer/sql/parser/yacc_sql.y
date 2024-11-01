@@ -159,6 +159,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
   int                                        number;
   float                                      floats;
   std::vector<UpdateInfoNode>*               update_info_list;
+  std::vector<std::string>*                  string_list;
 }
 
 
@@ -217,6 +218,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <sql_node>            exit_stmt
 %type <sql_node>            command_wrapper
 %type <update_info_list>    update_list
+%type <string_list>         id_list
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 
@@ -312,16 +314,18 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+    CREATE INDEX ID ON ID LBRACE id_list RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
       create_index.index_name = $3;
       create_index.relation_name = $5;
-      create_index.attribute_name = $7;
+      create_index.attribute_names = *$7;
       free($3);
       free($5);
-      free($7);
+      if ($7 != nullptr) {
+        delete $7;
+      }
     }
     ;
 
@@ -431,6 +435,26 @@ attr_def:
       free($1);
     }
     ;
+
+id_list:
+    ID
+    {
+      $$ = new std::vector<std::string>;
+      $$->emplace_back($1);
+      free($1);
+    }
+    | ID COMMA id_list
+    {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<std::string>;
+      }
+      $$->emplace_back($1);
+      free($1);
+    }
+    ;
+
 number:
     NUMBER {$$ = $1;}
     ;
