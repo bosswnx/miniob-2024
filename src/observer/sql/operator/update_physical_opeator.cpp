@@ -50,6 +50,12 @@ RC UpdatePhysicalOperator::open(Trx *trx)
           }
           cell = to_value;
         }
+        // 检查向量长度是否超过限制
+        if (cell.attr_type() == AttrType::VECTORS &&
+            static_cast<size_t>(cell.length()) > field_metas_[i].vector_dim() * sizeof(float)) {
+          LOG_WARN("vector length exceeds limit: %d > %d", cell.data_length()/4, field_metas_[i].vector_dim());
+          return RC::INVALID_ARGUMENT;
+        }
         // tuple->set_cell_at(field_metas_[i].field_id(), cell, record.data());
         cells_to_update.push_back(cell);
       }
