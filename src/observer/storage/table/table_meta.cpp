@@ -166,6 +166,9 @@ const IndexMeta *TableMeta::find_index_by_fields(const std::vector<const char *>
 {
   const IndexMeta *found_index = nullptr;
   for (const IndexMeta &index : indexes_) {
+    if (index.field_metas().size() != field_names.size()) {
+      continue;
+    }
     bool found = true;
     for (int i = 0; i < index.field_metas().size(); i++) {
       // b+tree 的索引字段是有顺序的，所以直接按顺序比较
