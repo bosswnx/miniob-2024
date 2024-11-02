@@ -48,6 +48,34 @@ RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bo
     LOG_WARN("failed to get exprs can pushdown. rc=%s", strrc(rc));
     return rc;
   }
+  
+  bool is_or = false;
+  if (predicate_expr->type() == ExprType::CONJUNCTION) {
+    auto conjunction_expr = static_cast<ConjunctionExpr *>(predicate_expr.get());
+    if (conjunction_expr->conjunction_type() == ConjunctionExpr::Type::OR) {
+      if (conjunction_expr->has_rewrite_tried_) {
+        change_made = false;
+        return rc;
+      }
+      is_or = true;
+      // 对于 OR 来说
+      if (!pushdown_exprs.empty() && !conjunction_expr->children().empty()) {
+        LOG_DEBUG("saw OR conjunction, pushdown_exprs has %d exprs, conjunction_expr has %d exprs, no need to pushdown anymore",
+                  pushdown_exprs.size(),
+                  conjunction_expr->children().size());
+        // 两个地方都有条件，一个是下推的，一个是剩下的，这种情况其实不要下推了。
+        // 加回来
+        std::vector<std::unique_ptr<Expression>> &child_exprs = conjunction_expr->children();
+        for (auto &expr : pushdown_exprs) {
+          child_exprs.emplace_back(std::move(expr));
+        }
+        pushdown_exprs.clear();
+        change_made = true;
+        conjunction_expr->has_rewrite_tried_ = true;
+      }
+    }
+    LOG_DEBUG("conjunction_expr has %d exprs now", conjunction_expr->children().size());
+  }
 
   if (!predicate_expr || is_empty_predicate(predicate_expr)) {
     // 所有的表达式都下推到了下层算子
@@ -61,6 +89,7 @@ RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bo
   if (!pushdown_exprs.empty()) {
     change_made = true;
     table_get_oper->set_predicates(std::move(pushdown_exprs));
+    table_get_oper->is_or_conjunction = is_or;
   }
   return rc;
 }
@@ -95,15 +124,16 @@ RC PredicatePushdownRewriter::get_exprs_can_pushdown(
   if (expr->type() == ExprType::CONJUNCTION) {
     ConjunctionExpr *conjunction_expr = static_cast<ConjunctionExpr *>(expr.get());
     // 或 操作的比较，太复杂，现在不考虑
-    if (conjunction_expr->conjunction_type() == ConjunctionExpr::Type::OR) {
-      LOG_WARN("unsupported or operation");
-      rc = RC::UNIMPLEMENTED;
-      return rc;
-    }
-
+    // 如果是或，并且child_exprs中**存在**不是常量和Field的条件，那么其实下推没什么必要。因为不知道非常量和Field的条件是否为真，filter不能过滤任何数据。
+    // 但是如果全是常量和Field，那么可以下推
+    // if (conjunction_expr->conjunction_type() == ConjunctionExpr::Type::OR) {
+    //   LOG_WARN("unsupported or operation");
+    //   rc = RC::UNIMPLEMENTED;
+    //   return rc;
+    // }
     std::vector<std::unique_ptr<Expression>> &child_exprs = conjunction_expr->children();
     for (auto iter = child_exprs.begin(); iter != child_exprs.end();) {
-      // 对每个子表达式，判断是否可以下放到table get 算子
+      // 对每个子表达式(ComparisonExpr)，判断是否可以下放到table get 算子
       rc = get_exprs_can_pushdown(*iter, pushdown_exprs);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to get pushdown expressions. rc=%s", strrc(rc));
@@ -127,8 +157,8 @@ RC PredicatePushdownRewriter::get_exprs_can_pushdown(
     if (left_expr->type() != ExprType::FIELD && right_expr->type() != ExprType::FIELD) {
       return rc;
     }
-    if (left_expr->type() != ExprType::FIELD && left_expr->type() != ExprType::VALUE &&
-        right_expr->type() != ExprType::FIELD && right_expr->type() != ExprType::VALUE) {
+    if ((left_expr->type() != ExprType::FIELD && left_expr->type() != ExprType::VALUE) ||
+        (right_expr->type() != ExprType::FIELD && right_expr->type() != ExprType::VALUE)) {
       return rc;
     }
 

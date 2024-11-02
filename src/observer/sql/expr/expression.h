@@ -368,6 +368,8 @@ public:
 
   std::vector<std::unique_ptr<Expression>> &children() { return children_; }
 
+  bool has_rewrite_tried_ = false;
+
 private:
   Type                                     conjunction_type_;
   std::vector<std::unique_ptr<Expression>> children_;

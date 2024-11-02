@@ -143,6 +143,7 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
   // 简单处理，就找等值查询
   std::vector<const char *> index_field_names;
   vector<Value>             values;
+  LOG_DEBUG("table get predicate exprs length: %d", predicates.size());
   for (auto &expr : predicates) {
     if (expr->type() == ExprType::COMPARISON) {
       auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
@@ -221,11 +222,13 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
         true /*right_inclusive*/);
 
     index_scan_oper->set_predicates(std::move(predicates));
+    index_scan_oper->is_or_conjunction = table_get_oper.is_or_conjunction;
     oper = unique_ptr<PhysicalOperator>(index_scan_oper);
     LOG_TRACE("use index scan");
   } else {
     auto table_scan_oper = new TableScanPhysicalOperator(table, table_get_oper.read_write_mode());
     table_scan_oper->set_predicates(std::move(predicates));
+    table_scan_oper->is_or_conjunction = table_get_oper.is_or_conjunction;
     oper = unique_ptr<PhysicalOperator>(table_scan_oper);
     LOG_TRACE("use table scan");
   }

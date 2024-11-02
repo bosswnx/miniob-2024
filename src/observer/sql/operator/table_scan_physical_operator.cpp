@@ -72,6 +72,8 @@ RC TableScanPhysicalOperator::filter(RowTuple &tuple, bool &result)
 {
   RC    rc = RC::SUCCESS;
   Value value;
+
+  bool has_true = false;
   for (unique_ptr<Expression> &expr : predicates_) {
     rc = expr->get_value(tuple, value);
     if (rc != RC::SUCCESS) {
@@ -80,11 +82,28 @@ RC TableScanPhysicalOperator::filter(RowTuple &tuple, bool &result)
 
     bool tmp_result = value.get_boolean();
     if (!tmp_result) {
-      result = false;
-      return rc;
+      // and, 有一个为false，整个表达式为false
+      if (!is_or_conjunction) {
+        result = false;
+        return rc;
+      }
+    } else {
+      // or, 有一个为true，整个表达式为true
+      if (is_or_conjunction) {
+        result = true;
+        return rc;
+      }
+      has_true = true;
     }
   }
+  // 都为true，并且是and
+  // 都为false，并且是or
 
-  result = true;
+  if (is_or_conjunction) {
+    result = has_true;
+  } else {
+    result = true;
+  }
+
   return rc;
 }
