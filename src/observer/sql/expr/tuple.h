@@ -211,6 +211,12 @@ public:
       TextUtils::load_text(table_, &text_data);
       cell.set_type(AttrType::TEXTS);
       cell.set_text(text_data.str, text_data.len, true);
+    } else if (field_meta->type() == AttrType::VECTORS) {
+      VectorData vector_data;
+      memcpy(&vector_data, this->record().data() + field_meta->offset(), field_meta->len());
+      VectorUtils::load_vector(table_, &vector_data);
+      cell.set_type(AttrType::VECTORS);
+      cell.set_vector(vector_data, true);
     } else {
       cell.set_type(field_meta->type());
       cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
@@ -246,6 +252,13 @@ public:
         };
         TextUtils::dump_text(table_, &text_data);
         memcpy(this->record_->data() + field_meta->offset(), &text_data, length);
+      } else if (field_meta->type() == AttrType::VECTORS && !cell.is_null()) {
+        VectorData vector_data = {
+            .dim    = static_cast<size_t>(cell.length() / sizeof(float)),
+            .vector = reinterpret_cast<const VectorData *>(cell.data())->vector,
+        };
+        VectorUtils::dump_vector(table_, &vector_data);
+        memcpy(this->record_->data() + field_meta->offset(), &vector_data, length);
       } else {
         memcpy(this->record_->data() + field_meta->offset(), cell.data(), length);
       }
@@ -262,6 +275,13 @@ public:
         };
         TextUtils::dump_text(table_, &text_data);
         memcpy(data + field_meta->offset(), &text_data, length);
+      } else if (field_meta->type() == AttrType::VECTORS && !cell.is_null()) {
+        VectorData vector_data = {
+            .dim    = static_cast<size_t>(cell.length() / sizeof(float)),
+            .vector = reinterpret_cast<const VectorData *>(cell.data())->vector,
+        };
+        VectorUtils::dump_vector(table_, &vector_data);
+        memcpy(data + field_meta->offset(), &vector_data, length);
       } else {
         memcpy(data + field_meta->offset(), cell.data(), length);
       }

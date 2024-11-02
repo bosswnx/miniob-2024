@@ -16,7 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/create_table_stmt.h"
 #include "event/sql_debug.h"
 
-RC CreateTableStmt::create(Db *db, const CreateTableSqlNode &create_table, Stmt *&stmt)
+RC CreateTableStmt::create(Db *db, CreateTableSqlNode &create_table, Stmt *&stmt)
 {
   StorageFormat storage_format = StorageFormat::UNKNOWN_FORMAT;
   if (create_table.storage_format.length() == 0) {
@@ -26,6 +26,14 @@ RC CreateTableStmt::create(Db *db, const CreateTableSqlNode &create_table, Stmt 
   }
   if (storage_format == StorageFormat::UNKNOWN_FORMAT) {
     return RC::INVALID_ARGUMENT;
+  }
+
+  // vector的特殊之处: vector(1024)和char(1024)具有相同的形式，在语法分析阶段没有区分开来
+  for (auto &attr : create_table.attr_infos) {
+    if (attr.type == AttrType::VECTORS) {
+      attr.dim     = attr.arr_len;
+      attr.arr_len = 1;
+    }
   }
   stmt = new CreateTableStmt(create_table.relation_name, create_table.attr_infos, storage_format);
   sql_debug("create table statement: table name %s", create_table.relation_name.c_str());

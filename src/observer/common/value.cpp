@@ -73,6 +73,9 @@ Value::Value(const Value &other)
     case AttrType::TEXTS: {
       set_text_from_other(other);
     } break;
+    case AttrType::VECTORS: {
+      set_vector(other.value_.vector_value_, true);
+    }
     default: {
       this->value_ = other.value_;
     } break;
@@ -175,14 +178,8 @@ void Value::set_data(char *data, int length)
       length_ = length;
     } break;
     case AttrType::VECTORS: {
-      auto *tmp = new vector<float>();
-      for (int offset = 0; offset < length; offset += sizeof(float)) {
-        float f;
-        memcpy(&f, data + offset, sizeof(float));
-        tmp->push_back(f);
-      }
-      value_.vector_value_ = tmp;
-      length_ = value_.vector_value_->size(); // Value 的 length_ 是向量的维度
+      memcpy(&value_.float_value_, data, length);
+      length_ = length;
     } break;
     case AttrType::TEXTS: {
       memcpy(&value_.text_value_, data, length);
@@ -270,24 +267,42 @@ void Value::set_vector(const char *s)
 {
   reset();
   attr_type_     = AttrType::VECTORS;
-  string vector_ = s;
-  vector_        = vector_.substr(1, vector_.size() - 2);  // 去掉中括号
-  vector<float>      vec;
-  std::istringstream iss(vector_);
+  string vector_literal = s;
+  vector_literal        = vector_literal.substr(1, vector_literal.size() - 2);  // 去掉中括号
+  vector<float>      numbers;
+  std::istringstream iss(vector_literal);
   string             token;
+  value_.vector_value_.dim = 0;
   while (std::getline(iss, token, ',')) {
-    vec.push_back(std::stof(token));
+    value_.vector_value_.dim++;
+    numbers.push_back(std::stof(token));
   }
-  value_.vector_value_ = new vector<float>(vec);
-  length_              = value_.vector_value_->size();
+  auto buffer = new float[numbers.size()];
+  memcpy(buffer, numbers.data(), numbers.size() * sizeof(float));
+  value_.vector_value_.vector = buffer;
+  length_                     = value_.vector_value_.dim * sizeof(float);
 }
 
-void Value::set_vector(const vector<float> &vec)
+void Value::set_vector(const VectorData &vector, bool give_ownership)
 {
   reset();
   attr_type_           = AttrType::VECTORS;
-  value_.vector_value_ = new vector<float>(vec);
-  length_              = value_.vector_value_->size();
+  if (give_ownership) {
+    value_.vector_value_ = {
+        .dim    = vector.dim,
+        .vector = vector.vector,
+    };
+  } else {
+    const auto buffer = new float[vector.dim];
+    memcpy(buffer, vector.vector, vector.dim * sizeof(float));
+    value_.vector_value_ = {
+        .dim    = vector.dim,
+        .vector = buffer,
+    };
+  }
+
+  own_data_ = true;
+  length_   = vector.dim * sizeof(float);
 }
 
 void Value::set_value(const Value &value)
@@ -314,7 +329,7 @@ void Value::set_value(const Value &value)
       set_date(value.get_int());
     } break;
     case AttrType::VECTORS: {
-      set_vector(value.get_vector());
+      set_vector(value.value_.vector_value_);
     } break;
     case AttrType::TEXTS: {
       set_text(value.value_.text_value_.str, value.value_.text_value_.len);
@@ -383,22 +398,13 @@ const char *Value::data() const
       return value_.pointer_value_;
     } break;
     case AttrType::VECTORS: {
-      char *data   = new char[sizeof(float) * length_ + sizeof(float)];
-      int   offset = 0;
-      for (auto &f : *value_.vector_value_) {
-        memcpy(data + offset, &f, sizeof(float));
-        offset += sizeof(float);
-      }
-      // 用 nan 标记数据结束
-      float nan = std::numeric_limits<float>::quiet_NaN();
-      memcpy(data + offset, &nan, sizeof(float));
-      return data;
-    }
+      return reinterpret_cast<const char *>(&value_.vector_value_);
+    } break;
     case AttrType::TEXTS: {
       return reinterpret_cast<const char *>(&value_.text_value_);
-    }
+    } break;
     default: {
-      return (const char *)&value_;
+      return reinterpret_cast<const char *>(&value_);
     } break;
   }
 }
@@ -495,19 +501,6 @@ float Value::get_float() const
 
 string Value::get_string() const { return this->to_string(); }
 
-vector<float> Value::get_vector() const
-{
-  switch (attr_type_) {
-    case AttrType::VECTORS: {
-      return *value_.vector_value_;
-    } break;
-    default: {
-      LOG_WARN("unknown data type. type=%d", attr_type_);
-      return vector<float>();
-    }
-  }
-}
-
 bool Value::get_boolean() const
 {
   switch (attr_type_) {
@@ -553,6 +546,8 @@ bool Value::get_boolean() const
   }
   return false;
 }
+
+const VectorData &Value::get_vector() const { return value_.vector_value_; }
 
 // 不会判断是否是 date 类型，需要调用者提前自己判断
 bool Value::is_date_valid() const
