@@ -34,6 +34,17 @@ public:
       bool nullable = false);
   ~FieldMeta() = default;
 
+  FieldMeta(const FieldMeta &field) {
+    name_        = field.name_;
+    attr_type_   = field.attr_type_;
+    attr_offset_ = field.attr_offset_;
+    attr_len_    = field.attr_len_;
+    visible_     = field.visible_;
+    field_id_    = field.field_id_;
+    nullable_    = field.nullable_;
+    vector_dim_  = field.vector_dim_;
+  }
+
   RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id,
       bool nullable = false, int vector_dim = 0);
 

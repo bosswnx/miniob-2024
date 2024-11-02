@@ -383,6 +383,15 @@ create_table_stmt:    /*create table 语句的语法解析树*/
         free($8);
       }
     }
+    // as
+    | CREATE TABLE ID AS select_stmt
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_TABLE);
+      CreateTableSqlNode &create_table = $$->create_table;
+      create_table.relation_name = $3;
+      free($3);
+      create_table.sub_select = $5;
+    }
     ;
 attr_def_list:
     /* empty */
