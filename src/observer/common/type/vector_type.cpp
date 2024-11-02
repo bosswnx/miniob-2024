@@ -50,7 +50,7 @@ RC VectorType::add(const Value &left_value, const Value &right_right, Value &res
   }
   VectorData res    = {.dim = left.dim};
   auto       buffer = new float[left.dim];
-  for (int i = 0; i < left_value.length_; ++i) {
+  for (size_t i = 0; i < left.dim; ++i) {
     buffer[i] = left.vector[i] + right.vector[i];
   }
   res.vector = buffer;
@@ -68,7 +68,7 @@ RC VectorType::subtract(const Value &left_value, const Value &right_right, Value
   }
   VectorData res    = {.dim = left.dim};
   auto       buffer = new float[left.dim];
-  for (int i = 0; i < left_value.length_; ++i) {
+  for (size_t i = 0; i < left.dim; ++i) {
     buffer[i] = left.vector[i] - right.vector[i];
   }
   res.vector = buffer;
@@ -86,7 +86,7 @@ RC VectorType::multiply(const Value &left_value, const Value &right_right, Value
   }
   VectorData res    = {.dim = left.dim};
   auto       buffer = new float[left.dim];
-  for (int i = 0; i < left_value.length_; ++i) {
+  for (size_t i = 0; i < left.dim; ++i) {
     buffer[i] = left.vector[i] * right.vector[i];
   }
   res.vector = buffer;
@@ -143,7 +143,7 @@ RC VectorType::to_string(const Value &val, string &result) const
   stringstream ss;
   VectorData   vec = val.get_vector();
   ss << "[";
-  for (int i = 0; i < vec.dim; i++) {
+  for (size_t i = 0; i < vec.dim; i++) {
     // if (vec.vector[i] != vec.vector[i]) {
     //     break;
     // }
