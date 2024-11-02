@@ -70,13 +70,12 @@ RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
 RC OptimizeStage::optimize(unique_ptr<LogicalOperator> &oper)
 {
   RC rc = RC::SUCCESS;
+  rc    = rewrite(oper);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("failed to rewrite logical plan. rc=%s", strrc(rc));
+    return rc;
+  }
   return rc;
-  // rc    = rewrite(oper);
-  // if (rc != RC::SUCCESS) {
-  //   LOG_ERROR("failed to rewrite logical plan. rc=%s", strrc(rc));
-  //   return rc;
-  // }
-  // return rc;
 }
 
 RC OptimizeStage::generate_physical_plan(

@@ -53,8 +53,9 @@ RC UpdatePhysicalOperator::open(Trx *trx)
         // tuple->set_cell_at(field_metas_[i].field_id(), cell, record.data());
         cells_to_update.push_back(cell);
       }
-      for (size_t i = 0; i<cells_to_update.size(); ++i) 
+      for (size_t i = 0; i<cells_to_update.size(); ++i) {
         tuple->set_cell_at(field_metas_[i].field_id(), cells_to_update[i], record.data());
+      }
       cells_to_update.clear();
 
       updateIndexTasks.push_back([this, record] {
