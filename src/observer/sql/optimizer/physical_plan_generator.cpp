@@ -254,25 +254,46 @@ RC PhysicalPlanGenerator::create_plan(PredicateLogicalOperator &pred_oper, uniqu
   unique_ptr<Expression> expression = std::move(expressions.front());
 
   // 取出子查询的逻辑算子，创建物理算子
+  std::vector<ComparisonExpr *> comparison_exprs;
+  // std::vector<unique_ptr<ComparisonExpr>> comparison_exprs;
   if (expression->type() == ExprType::CONJUNCTION) {
     auto conjunction_expr = static_cast<ConjunctionExpr *>(expression.get());
     vector<unique_ptr<Expression>> &children = conjunction_expr->children();
     for (auto &child_expr : children) {
       if (child_expr->type() == ExprType::COMPARISON) {
-        auto comparison_expr = static_cast<ComparisonExpr *>(child_expr.get());
-        if (comparison_expr->left()->type() == ExprType::SUB_QUERY) {
-          auto sub_query_expr = static_cast<SubqueryExpr *>(comparison_expr->left().get());
-          unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
-          rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper);
-          sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
-        } 
-        if (comparison_expr->right()->type() == ExprType::SUB_QUERY) {
-          auto sub_query_expr = static_cast<SubqueryExpr *>(comparison_expr->right().get());
-          unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
-          rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper);
-          sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
-        }
+        comparison_exprs.push_back(static_cast<ComparisonExpr *>(child_expr.get()));
       }
+    }
+  } else if (expression->type() == ExprType::COMPARISON) {
+    comparison_exprs.push_back(static_cast<ComparisonExpr *>(expression.get()));
+  }
+
+  for (auto &comparison_expr : comparison_exprs) {
+    if (comparison_expr->left()->type() == ExprType::SUB_QUERY) {
+      auto sub_query_expr = static_cast<SubqueryExpr *>(comparison_expr->left().get());
+      if (sub_query_expr->physical_operator() != nullptr) {
+        LOG_WARN("[UNEXPECTED] subquery physical operator is not null!");
+      }
+      unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
+      RC rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to create subquery physical operator. rc=%s", strrc(rc));
+        return rc;
+      }
+      sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
+    }
+    if (comparison_expr->right()->type() == ExprType::SUB_QUERY) {
+      auto sub_query_expr = static_cast<SubqueryExpr *>(comparison_expr->right().get());
+      if (sub_query_expr->physical_operator() != nullptr) {
+        LOG_WARN("[UNEXPECTED] subquery physical operator is not null!");
+      }
+      unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
+      RC rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to create subquery physical operator. rc=%s", strrc(rc));
+        return rc;
+      }
+      sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
     }
   }
 
