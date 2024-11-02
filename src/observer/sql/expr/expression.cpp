@@ -1143,12 +1143,16 @@ std::unique_ptr<Expression> &IsExpr::right() { return right_; }
 
 SubqueryExpr::SubqueryExpr(ParsedSqlNode *sub_query_sn) : sub_query_sn_(sub_query_sn) {}
 
-RC SubqueryExpr::open_physical_operator() const
+RC SubqueryExpr::open_physical_operator(Tuple *outer_tuple) const
 {
   if (physical_operator_ == nullptr) {
     LOG_WARN("physical operator is null");
     return RC::INVALID_ARGUMENT;
   }
+  // 将外层的 tuple 传递给子查询算子，以达到查外层表的目的
+  // proj -> orderby -> predicate 普通
+  // proj -> orderby -> groupby -> predicate 聚合
+  physical_operator_->set_outer_tuple(outer_tuple);
   RC rc = physical_operator_->open(trx_);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open physical operator. rc=%s", strrc(rc));
@@ -1189,8 +1193,9 @@ RC       SubqueryExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) con
 
   trx_ = trx;
 
+  auto *tuple__ = const_cast<Tuple*>(&tuple);
   if (!is_open_) {
-    rc = open_physical_operator();
+    rc = open_physical_operator(tuple__);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to open physical operator. rc=%s", strrc(rc));
       return rc;

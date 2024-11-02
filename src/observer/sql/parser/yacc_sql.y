@@ -72,6 +72,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         TABLE
         TABLES
         INDEX
+        UNIQUE
         CALC
         SELECT
         DESC
@@ -99,7 +100,9 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         FROM
         INNER_JOIN
         WHERE
+        HAVING
         AND
+        OR
         SET
         ON
         IN
@@ -158,6 +161,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
   int                                        number;
   float                                      floats;
   std::vector<UpdateInfoNode>*               update_info_list;
+  std::vector<std::string>*                  string_list;
 }
 
 
@@ -185,6 +189,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <value_list>          value_list
 %type <condition_list>      where
 %type <condition_list>      condition_list
+%type <condition_list>      having
 %type <join_list>           join_list
 %type <string>              storage_format
 %type <relation_list>       rel_list
@@ -216,6 +221,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <sql_node>            exit_stmt
 %type <sql_node>            command_wrapper
 %type <update_info_list>    update_list
+%type <string_list>         id_list
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 
@@ -311,16 +317,37 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+    CREATE INDEX ID ON ID LBRACE id_list RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
       create_index.index_name = $3;
       create_index.relation_name = $5;
-      create_index.attribute_name = $7;
+      create_index.attribute_names = *$7;
+      create_index.is_unique = false;
       free($3);
       free($5);
-      free($7);
+      if ($7 != nullptr) {
+        // 因为是从右往左解析的，所以需要反转
+        std::reverse($$->create_index.attribute_names.begin(), $$->create_index.attribute_names.end());
+        delete $7;
+      }
+    }
+    | CREATE UNIQUE INDEX ID ON ID LBRACE id_list RBRACE
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
+      CreateIndexSqlNode &create_index = $$->create_index;
+      create_index.index_name = $4;
+      create_index.relation_name = $6;
+      create_index.attribute_names = *$8;
+      create_index.is_unique = true;
+      free($4);
+      free($6);
+      if ($8 != nullptr) {
+        // 因为是从右往左解析的，所以需要反转
+        std::reverse($$->create_index.attribute_names.begin(), $$->create_index.attribute_names.end());
+        delete $8;
+      }
     }
     ;
 
@@ -430,6 +457,26 @@ attr_def:
       free($1);
     }
     ;
+
+id_list:
+    ID
+    {
+      $$ = new std::vector<std::string>;
+      $$->emplace_back($1);
+      free($1);
+    }
+    | ID COMMA id_list
+    {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<std::string>;
+      }
+      $$->emplace_back($1);
+      free($1);
+    }
+    ;
+
 number:
     NUMBER {$$ = $1;}
     ;
@@ -580,7 +627,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT expression_list FROM rel_list join_list where group_by order_by
+    SELECT expression_list FROM rel_list join_list where group_by having order_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -624,11 +671,18 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $7;
       }
 
-      // order by
+      // having
       if ($8 != nullptr) {
-        $$->selection.order_by.swap(*$8);
-        std::reverse($$->selection.order_by.begin(), $$->selection.order_by.end());
+        $$->selection.havings.swap(*$8);
+        std::reverse($$->selection.havings.begin(), $$->selection.havings.end());
         delete $8;
+      }
+
+      // order by
+      if ($9 != nullptr) {
+        $$->selection.order_by.swap(*$9);
+        std::reverse($$->selection.order_by.begin(), $$->selection.order_by.end());
+        delete $9;
       }
     }
     ;
@@ -646,6 +700,40 @@ expression_list:
     {
       $$ = new std::vector<std::unique_ptr<Expression>>;
       $$->emplace_back($1);
+    }
+    | expression ID{
+      $$ = new std::vector<std::unique_ptr<Expression>>;
+      $1->set_alias($2);
+      $$->emplace_back($1);
+      free($2);
+    }
+    | expression AS ID{
+      $$ = new std::vector<std::unique_ptr<Expression>>;
+      $1->set_alias($3);
+      $$->emplace_back($1);
+      free($3);
+    }
+    | expression ID COMMA expression_list
+    {
+      if ($4 != nullptr) {
+        $$ = $4;
+      } else {
+        $$ = new std::vector<std::unique_ptr<Expression>>;
+      }
+      $1->set_alias($2);
+      $$->emplace($$->begin(), $1);
+      free($2);
+    }
+    | expression AS ID COMMA expression_list
+    {
+      if ($5 != nullptr) {
+        $$ = $5;
+      } else {
+        $$ = new std::vector<std::unique_ptr<Expression>>;
+      }
+      $1->set_alias($3);
+      $$->emplace($$->begin(), $1);
+      free($3);
     }
     | expression COMMA expression_list
     {
@@ -748,6 +836,12 @@ rel_attr:
       free($1);
       free($3);
     }
+    | ID DOT '*' {
+      $$ = new RelAttrSqlNode;
+      $$->relation_name  = $1;
+      $$->attribute_name = "*";
+      free($1);
+    }
     ;
 
 relation:
@@ -834,11 +928,19 @@ condition_list:
     }
     | condition {
       $$ = new std::vector<ConditionSqlNode>;
+      $1->conjunction_type = 0;
       $$->push_back(std::move(*$1));
       delete $1;
     }
     | condition AND condition_list {
       $$ = $3;
+      $1->conjunction_type = 1;
+      $$->push_back(std::move(*$1));
+      delete $1;
+    }
+    | condition OR condition_list {
+      $$ = $3;
+      $1->conjunction_type = 2;
       $$->push_back(std::move(*$1));
       delete $1;
     }
@@ -896,6 +998,16 @@ group_by:
       $$ = new std::vector<std::unique_ptr<Expression>>;
       $$->swap(*$3);
       delete $3;
+    }
+    ;
+
+having:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | HAVING condition_list {
+      $$ = $2;
     }
     ;
 

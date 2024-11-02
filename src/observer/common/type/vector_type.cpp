@@ -22,7 +22,7 @@ int VectorType::compare(const Value &left_value, const Value &right_value) const
   const VectorData left  = left_value.get_vector();
   const VectorData right = right_value.get_vector();
 
-  int idx = 0;
+  size_t idx = 0;
   while (idx < left.dim && idx < right.dim) {
     if (left.vector[idx] < right.vector[idx]) {
       return -1;

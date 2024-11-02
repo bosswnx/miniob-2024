@@ -133,7 +133,9 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     last_oper = &predicate_oper;
   }
 
+  // group by
   unique_ptr<LogicalOperator> group_by_oper;
+  bool has_group_by = false;
   rc = create_group_by_plan(select_stmt, group_by_oper);
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to create group by logical plan. rc=%s", strrc(rc));
@@ -146,8 +148,33 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     }
 
     last_oper = &group_by_oper;
+    has_group_by = true;
   }
 
+  // having
+  unique_ptr<LogicalOperator> predicate_oper_having;
+  if (!has_group_by && select_stmt->filter_stmt_having() != nullptr) {
+    LOG_WARN("having statement without group by statement");
+    return RC::INVALID_ARGUMENT;
+  }
+  if (select_stmt->filter_stmt_having() != nullptr) {
+    RC rc = create_plan(select_stmt->filter_stmt_having(), predicate_oper_having);
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to create predicate(having) logical plan. rc=%s", strrc(rc));
+      return rc;
+    }
+
+    if (predicate_oper_having) {
+      if (*last_oper) {
+        predicate_oper_having->add_child(std::move(*last_oper)); // predicate -> tableget/join
+      }
+
+      last_oper = &predicate_oper_having;
+    }
+  }
+
+
+  // order by
   unique_ptr<LogicalOperator> order_by_oper;
   rc = create_order_by_plan(select_stmt, order_by_oper);
   if (OB_FAIL(rc)) {
@@ -198,7 +225,8 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
             return rc;
           }
           sub_query_expr->set_logical_operator(std::move(sub_query_oper));
-        } else if (cmp_expr_->right() != nullptr && cmp_expr_->right()->type() == ExprType::SUB_QUERY) {
+        }
+        if (cmp_expr_->right() != nullptr && cmp_expr_->right()->type() == ExprType::SUB_QUERY) {
           auto sub_query_expr = static_cast<SubqueryExpr *>(cmp_expr_->right().get());
           auto sub_query_stmt = static_cast<SelectStmt *>(sub_query_expr->stmt().get());
           unique_ptr<LogicalOperator> sub_query_oper;
@@ -251,9 +279,17 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
     // }
   }
 
+  // conjunction type 确定
+  // 暂时支持纯 and 或者纯 or
+  ConjunctionExpr::Type conjunction_type = ConjunctionExpr::Type::AND;
+  if (filter_stmt->conjunction_types_.size() > 0 && filter_stmt->conjunction_types_[0] == 2) {
+    // or
+    conjunction_type = ConjunctionExpr::Type::OR;
+  }
+
   unique_ptr<PredicateLogicalOperator> predicate_oper;
   if (!cmp_exprs.empty()) {
-    unique_ptr<ConjunctionExpr> conjunction_expr(new ConjunctionExpr(ConjunctionExpr::Type::AND, cmp_exprs));
+    unique_ptr<ConjunctionExpr> conjunction_expr(new ConjunctionExpr(conjunction_type, cmp_exprs));
     predicate_oper = std::make_unique<PredicateLogicalOperator>(std::move(conjunction_expr));
   }
 
@@ -387,6 +423,26 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
     return RC::SUCCESS;
   }
 
+  // having aggrs
+  if (select_stmt->filter_stmt_having() != nullptr) {
+    for (auto &expr : select_stmt->filter_stmt_having()->conditions_) {
+      if (expr->type() == ExprType::COMPARISON) {
+        auto cmp_expr = static_cast<ComparisonExpr *>(expr.get());
+        if (cmp_expr->left()->type() == ExprType::AGGREGATION) {
+          auto aggr_expr = static_cast<AggregateExpr *>(cmp_expr->left().get());
+          aggregate_expressions.push_back(aggr_expr);
+          LOG_DEBUG("logical_gen_groupby: having aggr expr type in left comparison");
+        }
+        if (cmp_expr->right()->type() == ExprType::AGGREGATION) {
+          auto aggr_expr = static_cast<AggregateExpr *>(cmp_expr->right().get());
+          aggregate_expressions.push_back(aggr_expr);
+          LOG_DEBUG("logical_gen_groupby: having aggr expr type in right comparison");
+        }
+      }
+    }
+  }
+
+
   if (found_unbound_column) {
     LOG_WARN("column must appear in the GROUP BY clause or must be part of an aggregate function");
     return RC::INVALID_ARGUMENT;
@@ -402,6 +458,9 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
 
 RC LogicalPlanGenerator::create_order_by_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
+  if (select_stmt->order_by_exprs_.empty()) {
+    return RC::SUCCESS;
+  }
   auto order_by_oper = make_unique<OrderByLogicalOperator>(
       std::move(select_stmt->order_by_exprs_), std::move(select_stmt->order_by_descs_));
   logical_operator = std::move(order_by_oper);

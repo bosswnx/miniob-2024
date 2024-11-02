@@ -135,6 +135,10 @@ public:
    */
   virtual RC eval(Chunk &chunk, std::vector<uint8_t> &select) { return RC::UNIMPLEMENTED; }
 
+  void set_alias(const std::string &alias) { alias_ = alias; }
+  const char *alias() const { return alias_.c_str(); }
+  const std::string alias_std_string() const { return alias_; }
+
 protected:
   /**
    * @brief 表达式在下层算子返回的 chunk 中的位置
@@ -146,6 +150,8 @@ protected:
 
 private:
   std::string name_;
+  
+  std::string alias_;
 };
 
 class StarExpr : public Expression
@@ -184,6 +190,10 @@ public:
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
+
+  // setter
+  void set_field_name(const std::string &field_name) { field_name_ = field_name; }
+  void set_table_name(const std::string &table_name) { table_name_ = table_name; }
 
 private:
   std::string table_name_;
@@ -563,7 +573,7 @@ public:
   void set_logical_operator(std::unique_ptr<LogicalOperator> logical_operator);
   void set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator);
   void set_trx(Trx *trx);
-  RC   open_physical_operator() const;
+  RC   open_physical_operator(Tuple *outer_tuple) const;
   RC   close_physical_operator() const;
   void set_stmt(std::unique_ptr<SelectStmt> stmt);
   ParsedSqlNode* sub_query_sn();

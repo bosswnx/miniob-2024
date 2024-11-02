@@ -206,23 +206,15 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_.index(i);
-    const FieldMeta *field_meta = table_meta_.field(index_meta->field());
-    if (field_meta == nullptr) {
-      LOG_ERROR("Found invalid index meta info which has a non-exists field. table=%s, index=%s, field=%s",
-                name(), index_meta->name(), index_meta->field());
-      // skip cleanup
-      //  do all cleanup action in destructive Table function
-      return RC::INTERNAL;
-    }
 
     BplusTreeIndex *index      = new BplusTreeIndex();
-    string          index_file = table_index_file(base_dir, name(), index_meta->name());
+    string          index_file = table_index_file(base_dir, name(), index_meta->name().c_str());
 
-    rc = index->open(this, index_file.c_str(), *index_meta, *field_meta);
+    rc = index->open(this, index_file.c_str(), *index_meta);
     if (rc != RC::SUCCESS) {
       delete index;
       LOG_ERROR("Failed to open index. table=%s, index=%s, file=%s, rc=%s",
-                name(), index_meta->name(), index_file.c_str(), strrc(rc));
+                name(), index_meta->name().c_str(), index_file.c_str(), strrc(rc));
       // skip cleanup
       //  do all cleanup action in destructive Table function.
       return rc;
@@ -244,12 +236,7 @@ RC Table::insert_record(Record &record)
 
   rc = insert_entry_of_indexes(record.data(), record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
-    RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
-    if (rc2 != RC::SUCCESS) {
-      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-                name(), rc2, strrc(rc2));
-    }
-    rc2 = record_handler_->delete_record(&record.rid());
+    RC rc2 = record_handler_->delete_record(&record.rid());
     if (rc2 != RC::SUCCESS) {
       LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
                 name(), rc2, strrc(rc2));
@@ -415,19 +402,34 @@ RC Table::get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode m
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name)
+RC Table::create_index(
+    Trx *trx, const std::vector<const FieldMeta *> &field_metas, const char *index_name, bool is_unique)
 {
-  if (common::is_blank(index_name) || nullptr == field_meta) {
+  if (common::is_blank(index_name) || field_metas.empty()) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
     return RC::INVALID_ARGUMENT;
   }
 
+  for (const auto &field_meta : field_metas) {
+    if (nullptr == field_meta) {
+      LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
+      return RC::INVALID_ARGUMENT;
+    }
+  }
+
   IndexMeta new_index_meta;
 
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, field_metas, is_unique);
   if (rc != RC::SUCCESS) {
-    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", 
-             name(), index_name, field_meta->name());
+    std::string field_names;
+    for (size_t i = 0; i < field_metas.size(); i++) {
+      if (i > 0) {
+        field_names += ", ";
+      }
+      field_names += field_metas[i]->name();
+    }
+    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_names:%s", 
+             name(), index_name, field_names.c_str());
     return rc;
   }
 
@@ -435,7 +437,7 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_
   BplusTreeIndex *index      = new BplusTreeIndex();
   string          index_file = table_index_file(base_dir_.c_str(), name(), index_name);
 
-  rc = index->create(this, index_file.c_str(), new_index_meta, *field_meta);
+  rc = index->create(this, index_file.c_str(), new_index_meta);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
@@ -532,38 +534,75 @@ RC Table::delete_record(const Record &record)
     rc = index->delete_entry(record.data(), &record.rid());
     ASSERT(RC::SUCCESS == rc, 
            "failed to delete entry from index. table name=%s, index name=%s, rid=%s, rc=%s",
-           name(), index->index_meta().name(), record.rid().to_string().c_str(), strrc(rc));
+           name(), index->index_meta().name().c_str(), record.rid().to_string().c_str(), strrc(rc));
   }
   rc = record_handler_->delete_record(&record.rid());
   return rc;
 }
 
-RC Table::update_index(const Record &record, const std::vector<FieldMeta> &affectedFields)
+RC Table::index_cache_insert_entry(const Record &record, const std::vector<FieldMeta> &affectedFields)
 {
-  RC                   rc = RC::SUCCESS;
-  std::vector<Index *> indexNeedUpdate;
+  RC rc = RC::SUCCESS;
   for (auto index : indexes_) {
+    bool updated = false;
     for (auto field : affectedFields) {
-      if (strcmp(index->field_meta().name(), field.name()) == 0) {
-        indexNeedUpdate.push_back(index);
+      if (index->index_meta().has_field(field.name())) {
+        updated = true;
+        rc      = index->cache_insert_entry(record.data(), &record.rid());
+        if (rc != RC::SUCCESS) {
+          break;
+        }
         break;
       }
     }
+    if (updated) {
+      break;
+    }
   }
-  // 操你妈，这里他妈不用删除旧的索引，我真他妈想不到他是怎么处理的 BEGIN
-  // for (auto index : indexNeedUpdate) {
-  //   rc = index->delete_entry(old_record.data(), &old_record.rid());
-  //   if (OB_FAIL(rc)) {
-  //     LOG_WARN("delete index entry failed: %s", strrc(rc));
-  //     return rc;
-  //   }
-  // }
-  // 操你妈，这里他妈不用删除旧的索引，我真他妈想不到他是怎么处理的 END
-  for (auto index : indexNeedUpdate) {
-    rc = index->insert_entry(record.data(), &record.rid());
-    if (OB_FAIL(rc)) {
-      LOG_WARN("insert index entry failed: %s", strrc(rc));
-      return rc;
+  return RC::SUCCESS;
+}
+
+RC Table::index_cache_delete_entry(const Record &record, const std::vector<FieldMeta> &affectedFields)
+{
+  RC rc = RC::SUCCESS;
+  for (auto index : indexes_) {
+    bool updated = false;
+    for (auto field : affectedFields) {
+      if (index->index_meta().has_field(field.name())) {
+        updated = true;
+        rc      = index->cache_delete_entry(record.data(), &record.rid());
+        if (rc != RC::SUCCESS) {
+          break;
+        }
+        break;
+      }
+    }
+    if (updated) {
+      break;
+    }
+  }
+  return rc;
+}
+
+RC Table::index_flush_cached_entries()
+{
+  RC rc = RC::SUCCESS;
+  for (auto index : indexes_) {
+    rc = index->flush_cached_entries();
+    if (rc != RC::SUCCESS) {
+      break;
+    }
+  }
+  return rc;
+}
+
+RC Table::clear_cached_entries()
+{
+  RC rc = RC::SUCCESS;
+  for (auto index : indexes_) {
+    rc = index->clear_cached_entries();
+    if (rc != RC::SUCCESS) {
+      break;
     }
   }
   return rc;
@@ -598,20 +637,23 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
 Index *Table::find_index(const char *index_name) const
 {
   for (Index *index : indexes_) {
-    if (0 == strcmp(index->index_meta().name(), index_name)) {
+    if (index->index_meta().name() == index_name) {
       return index;
     }
   }
   return nullptr;
 }
-Index *Table::find_index_by_field(const char *field_name) const
+
+// 根据字段名找到对应的索引，目前仅支持完全匹配的等值查找
+Index *Table::find_index_by_fields(const std::vector<const char *> &field_names) const
 {
   const TableMeta &table_meta = this->table_meta();
-  const IndexMeta *index_meta = table_meta.find_index_by_field(field_name);
-  if (index_meta != nullptr) {
-    return this->find_index(index_meta->name());
+  const IndexMeta *index_meta = table_meta.find_index_by_fields(field_names);
+
+  if (index_meta == nullptr) {
+    return nullptr;
   }
-  return nullptr;
+  return this->find_index(index_meta->name().c_str());
 }
 
 RC Table::sync()
@@ -622,7 +664,7 @@ RC Table::sync()
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to flush index's pages. table=%s, index=%s, rc=%d:%s",
           name(),
-          index->index_meta().name(),
+          index->index_meta().name().c_str(),
           rc,
           strrc(rc));
       return rc;

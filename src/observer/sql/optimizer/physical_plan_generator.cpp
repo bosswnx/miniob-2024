@@ -140,10 +140,12 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
 
   Index     *index      = nullptr;
   ValueExpr *value_expr = nullptr;
+  // 简单处理，就找等值查询
+  std::vector<const char *> index_field_names;
+  vector<Value>             values;
   for (auto &expr : predicates) {
     if (expr->type() == ExprType::COMPARISON) {
       auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
-      // 简单处理，就找等值查询
       if (comparison_expr->comp() != CompOp::EQUAL_TO) {
         continue;
       }
@@ -171,23 +173,22 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
       }
 
       const Field &field = field_expr->field();
-      index              = table->find_index_by_field(field.field_name());
-      if (nullptr != index) {
-        break;
-      }
+      index_field_names.push_back(field.field_name());
+      values.push_back(value_expr->get_value());
     }
   }
+
+  index = table->find_index_by_fields(index_field_names);
 
   if (index != nullptr) {
     ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
 
-    const Value               &value           = value_expr->get_value();
     IndexScanPhysicalOperator *index_scan_oper = new IndexScanPhysicalOperator(table,
         index,
         table_get_oper.read_write_mode(),
-        &value,
+        values,
         true /*left_inclusive*/,
-        &value,
+        values,
         true /*right_inclusive*/);
 
     index_scan_oper->set_predicates(std::move(predicates));
@@ -235,7 +236,8 @@ RC PhysicalPlanGenerator::create_plan(PredicateLogicalOperator &pred_oper, uniqu
           unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
           rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper);
           sub_query_expr->set_physical_operator(std::move(subquery_phy_oper));
-        } else if (comparison_expr->right()->type() == ExprType::SUB_QUERY) {
+        } 
+        if (comparison_expr->right()->type() == ExprType::SUB_QUERY) {
           auto sub_query_expr = static_cast<SubqueryExpr *>(comparison_expr->right().get());
           unique_ptr<PhysicalOperator> subquery_phy_oper = nullptr;
           rc = create(*sub_query_expr->logical_operator(), subquery_phy_oper);
@@ -376,6 +378,7 @@ RC PhysicalPlanGenerator::create_plan(GroupByLogicalOperator &logical_oper, std:
   vector<unique_ptr<Expression>> &group_by_expressions = logical_oper.group_by_expressions();
   unique_ptr<GroupByPhysicalOperator> group_by_oper;
   if (group_by_expressions.empty()) {
+    // 没有 group by，只有聚合函数的情况
     group_by_oper = make_unique<ScalarGroupByPhysicalOperator>(std::move(logical_oper.aggregate_expressions()));
   } else {
     group_by_oper = make_unique<HashGroupByPhysicalOperator>(std::move(logical_oper.group_by_expressions()),

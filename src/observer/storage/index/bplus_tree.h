@@ -18,6 +18,8 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include <string.h>
+#include <string>
+#include <vector>
 
 #include "common/lang/comparator.h"
 #include "common/lang/memory.h"
@@ -89,24 +91,36 @@ private:
 class KeyComparator
 {
 public:
-  void init(AttrType type, int length) { attr_comparator_.init(type, length); }
+  void init(const std::vector<AttrType> &types, const std::vector<int> &lengths)
+  {
+    attr_comparators_.clear();
+    for (size_t i = 0; i < types.size(); i++) {
+      AttrComparator attr_comparator;
+      attr_comparator.init(types[i], lengths[i]);
+      attr_comparators_.emplace_back(attr_comparator);
+    }
+  }
 
-  const AttrComparator &attr_comparator() const { return attr_comparator_; }
+  const std::vector<AttrComparator> &attr_comparators() const { return attr_comparators_; }
 
   int operator()(const char *v1, const char *v2) const
   {
-    int result = attr_comparator_(v1, v2);
-    if (result != 0) {
-      return result;
+    for (const auto &attr_comparator : attr_comparators_) {
+      int result = attr_comparator(v1, v2);
+      if (result != 0) {
+        return result;
+      }
+      v1 += attr_comparator.attr_length();
+      v2 += attr_comparator.attr_length();
     }
 
-    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
-    const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
+    const RID *rid1 = (const RID *)(v1);
+    const RID *rid2 = (const RID *)(v2);
     return RID::compare(rid1, rid2);
   }
 
 private:
-  AttrComparator attr_comparator_;
+  std::vector<AttrComparator> attr_comparators_;  // 多字段索引，每个字段一个比较器
 };
 
 /**
@@ -142,29 +156,42 @@ private:
 class KeyPrinter
 {
 public:
-  void init(AttrType type, int length) { attr_printer_.init(type, length); }
-
-  const AttrPrinter &attr_printer() const { return attr_printer_; }
+  void init(const std::vector<AttrType> &types, const std::vector<int> &lengths)
+  {
+    attr_printers_.clear();
+    for (size_t i = 0; i < types.size(); i++) {
+      AttrPrinter attr_printer;
+      attr_printer.init(types[i], lengths[i]);
+      attr_printers_.emplace_back(attr_printer);
+    }
+  }
 
   string operator()(const char *v) const
   {
     stringstream ss;
-    ss << "{key:" << attr_printer_(v) << ",";
+    ss << "{key:";
+    for (const auto &attr_printer : attr_printers_) {
+      ss << attr_printer(v) << ",";
+      v += attr_printer.attr_length();
+    }
 
-    const RID *rid = (const RID *)(v + attr_printer_.attr_length());
+    const RID *rid = (const RID *)(v);
     ss << "rid:{" << rid->to_string() << "}}";
     return ss.str();
   }
 
 private:
-  AttrPrinter attr_printer_;
+  std::vector<AttrPrinter> attr_printers_;  // 多字段索引，每个字段一个打印器
 };
+
+const int MAX_KEY_NUM =
+    (BP_PAGE_DATA_SIZE - sizeof(PageNum) - 5 * sizeof(int32_t)) / (sizeof(AttrType) + sizeof(int32_t));
 
 /**
  * @brief the meta information of bplus tree
  * @ingroup BPlusTree
  * @details this is the first page of bplus tree.
- * only one field can be supported, can you extend it to multi-fields?
+ * only one field can be supported, can you extend it to multi-fields? 好问题
  */
 struct IndexFileHeader
 {
@@ -176,20 +203,22 @@ struct IndexFileHeader
   PageNum  root_page;          ///< 根节点在磁盘中的页号
   int32_t  internal_max_size;  ///< 内部节点最大的键值对数
   int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
-  int32_t  attr_length;        ///< 键值的长度
-  int32_t  key_length;         ///< attr length + sizeof(RID)
-  AttrType attr_type;          ///< 键值的类型
+  int32_t  key_length;         ///< 键值长度 attr_length + sizeof(RID)
+  int32_t  attr_num;           ///< 属性个数
+  bool     is_unique;          ///< 是否唯一索引
+  AttrType attr_types[MAX_KEY_NUM];
+  int32_t  attr_lengths[MAX_KEY_NUM];
 
   const string to_string() const
   {
     stringstream ss;
 
-    ss << "attr_length:" << attr_length << ","
-       << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type_to_string(attr_type) << ","
-       << "root_page:" << root_page << ","
-       << "internal_max_size:" << internal_max_size << ","
-       << "leaf_max_size:" << leaf_max_size << ";";
+    // TODO: fix this
+    // ss << "key_length:" << key_length << ","
+    //    << "attr_types:" << attr_types_to_string(attr_types) << ","
+    //    << "root_page:" << root_page << ","
+    //    << "internal_max_size:" << internal_max_size << ","
+    //    << "leaf_max_size:" << leaf_max_size << ";";
 
     return ss.str();
   }
@@ -390,7 +419,7 @@ public:
   RC init_empty();
   RC create_new_root(PageNum first_page_num, const char *key, PageNum page_num);
 
-  RC      insert(const char *key, PageNum page_num, const KeyComparator &comparator);
+  RC      insert(const char *keys, PageNum page_num, const KeyComparator &comparator);
   char   *key_at(int index);
   PageNum value_at(int index);
 
@@ -410,7 +439,7 @@ public:
    * @param[out] insert_position 如果是有效指针，将会返回可以插入指定键值的位置
    */
   int lookup(
-      const KeyComparator &comparator, const char *key, bool *found = nullptr, int *insert_position = nullptr) const;
+      const KeyComparator &comparator, const char *keys, bool *found = nullptr, int *insert_position = nullptr) const;
 
   /**
    * @brief 把当前节点的所有数据都迁移到另一个节点上
@@ -459,10 +488,11 @@ public:
    * @param internal_max_size 内部节点最大大小
    * @param leaf_max_size 叶子节点最大大小
    */
-  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name, AttrType attr_type, int attr_length,
+  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const std::string &file_name,
+      const std::vector<AttrType> &attr_types, const std::vector<int> &attr_lengths, bool is_unique,
       int internal_max_size = -1, int leaf_max_size = -1);
-  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, AttrType attr_type, int attr_length,
-      int internal_max_size = -1, int leaf_max_size = -1);
+  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, const std::vector<AttrType> &attr_types,
+      const std::vector<int> &attr_lengths, bool is_unique, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
    * @brief 打开一个B+树
@@ -470,7 +500,7 @@ public:
    * @param bpm 缓冲池管理器
    * @param file_name 文件名
    */
-  RC open(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name);
+  RC open(LogHandler &log_handler, BufferPoolManager &bpm, const std::string &file_name);
   RC open(LogHandler &log_handler, DiskBufferPool &buffer_pool);
 
   /**
@@ -484,24 +514,38 @@ public:
    * 即向索引中插入一个值为（user_key，rid）的键值对
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC insert_entry(const char *user_key, const RID *rid);
-
+  RC insert_entry(const std::vector<const char *> &user_keys, const RID *rid);
   /**
    * @brief 从IndexHandle句柄对应的索引中删除一个值为（user_key，rid）的索引项
    * @return RECORD_INVALID_KEY 指定值不存在
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC delete_entry(const char *user_key, const RID *rid);
+  RC delete_entry(const std::vector<const char *> &user_keys, const RID *rid);
+
+  /**
+   * @brief 缓存一个需要插入的索引项，缓存一个需要删除的索引项，用于更新索引操作
+   */
+  RC cache_insert_entry(const std::vector<const char *> &user_keys, const RID *rid);
+  RC cache_delete_entry(const std::vector<const char *> &user_keys, const RID *rid);
+
+  /**
+   * @brief 执行所有缓存的插入和删除操作
+   */
+  RC flush_cached_entries();
+
+  /**
+   * @brief 清空缓存的插入和删除操作
+   */
+  RC clear_cached_entries();
 
   bool is_empty() const;
 
   /**
    * @brief 获取指定值的record
-   * @param key_len user_key的长度
+   * @param user_keys 用户键值
    * @param rid  返回值，记录记录所在的页面号和slot
    */
-  RC get_entry(const char *user_key, int key_len, list<RID> &rids);
-
+  RC get_entry(const std::vector<const char *> &user_keys, std::list<RID> &rids);
   RC sync();
 
   /**
@@ -633,7 +677,10 @@ protected:
   RC adjust_root(BplusTreeMiniTransaction &mtr, Frame *root_frame);
 
 private:
-  common::MemPoolItem::item_unique_ptr make_key(const char *user_key, const RID &rid);
+  /**
+   * @brief 从用户键值和RID创建一个B+树的
+   */
+  common::MemPoolItem::item_unique_ptr make_key(const std::vector<const char *> &user_keys, const RID *rid);
 
 protected:
   LogHandler     *log_handler_      = nullptr;  /// 日志处理器
@@ -647,6 +694,9 @@ protected:
 
   KeyComparator key_comparator_;
   KeyPrinter    key_printer_;
+
+  std::list<std::pair<common::MemPoolItem::item_unique_ptr, RID>> entries_need_insert_;
+  std::list<common::MemPoolItem::item_unique_ptr>                 entries_need_delete_;
 
   unique_ptr<common::MemPoolItem> mem_pool_item_;
 
@@ -675,8 +725,8 @@ public:
    * @param right_inclusive 右边界的值是否包含在内
    * TODO 重构参数表示方法
    */
-  RC open(const char *left_user_key, int left_len, bool left_inclusive, const char *right_user_key, int right_len,
-      bool right_inclusive);
+  RC open(const std::vector<const char *> &left_user_keys, bool left_inclusive,
+      const std::vector<const char *> &right_user_keys, bool right_inclusive);
 
   /**
    * @brief 获取下一条记录
@@ -699,7 +749,8 @@ private:
   /**
    * 如果key的类型是CHARS, 扩展或缩减user_key的大小刚好是schema中定义的大小
    */
-  RC fix_user_key(const char *user_key, int key_len, bool want_greater, char **fixed_key, bool *should_inclusive);
+  RC fix_user_key(
+      const char *user_key, int attr_length, bool want_greater, const char **fixed_key, bool *should_inclusive);
 
   void fetch_item(RID &rid);
 

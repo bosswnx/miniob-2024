@@ -193,15 +193,39 @@ RC ExpressionBinder::bind_unbound_field_expression(
 
   const char *table_name = unbound_field_expr->table_name();
   const char *field_name = unbound_field_expr->field_name();
+  const char *alias = unbound_field_expr->alias();
+
+  // 在顶层，table_name 已经被解析为真实的表名
+  // 在顶层，field_name 已经被解析为真实的字段名
+  // 或者为空
 
   Table *table = nullptr;
   if (is_blank(table_name)) {
-    if (context_.query_tables().size() != 1) {
-      LOG_INFO("cannot determine table for field: %s", field_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+    // if (context_.query_tables().size() != 1) {
+    //   LOG_INFO("cannot determine table for field: %s", field_name);
+    //   return RC::SCHEMA_TABLE_NOT_EXIST;
+    // }
+
+    // table = context_.query_tables()[0];
+
+    // 由于子查询 **可能** 会引进外部的表，这里我们只能通过字段名来确定表。
+    bool found = false;
+    for (Table *table_ : context_.query_tables()) {
+      if (table_->table_meta().field(field_name) != nullptr) {
+        if (found) {
+          LOG_INFO("ambiguous field name: %s, cannot determine table for this field.", field_name);
+          return RC::INVALID_ARGUMENT;
+        }
+        found = true;
+        table = table_;
+      }
     }
 
-    table = context_.query_tables()[0];
+    if (!found) {
+      LOG_INFO("no such field in from list: %s", field_name);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+
   } else {
     table = context_.find_table(table_name);
     if (nullptr == table) {
@@ -221,6 +245,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
 
     Field      field(table, field_meta);
     FieldExpr *field_expr = new FieldExpr(field);
+    field_expr->set_alias(alias);
     field_expr->set_name(field_name);
     bound_expressions.emplace_back(field_expr);
   }

@@ -93,6 +93,8 @@ struct ConditionSqlNode
   std::unique_ptr<Expression> left_expr;
   std::unique_ptr<Expression> right_expr;
   CompOp                      comp_op;
+  // 类型 and 或者 or
+  char conjunction_type = 0; // 0: no conjunction, 1: and, 2: or
 };
 
 struct JoinSqlNode
@@ -128,6 +130,7 @@ struct SelectSqlNode
   std::vector<RelationSqlNode>             relations;    ///< 查询的表
   std::vector<ConditionSqlNode>            conditions;   ///< 查询条件，使用AND串联起来多个条件
   std::vector<std::unique_ptr<Expression>> group_by;     ///< group by clause
+  std::vector<ConditionSqlNode>            havings;      ///< having clause
   std::vector<OrderBySqlNode>              order_by;     ///< order by clause
 };
 
@@ -224,7 +227,8 @@ struct CreateIndexSqlNode
 {
   std::string index_name;      ///< Index name
   std::string relation_name;   ///< Relation name
-  std::string attribute_name;  ///< Attribute name
+  std::vector<std::string> attribute_names;  ///< Attribute name
+  bool                     is_unique;        ///< 是否是唯一索引
 };
 
 /**

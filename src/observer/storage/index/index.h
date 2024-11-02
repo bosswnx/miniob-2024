@@ -42,7 +42,7 @@ public:
 
   const IndexMeta &index_meta() const { return index_meta_; }
 
-  const FieldMeta &field_meta() const { return field_meta_; }
+  const std::vector<FieldMeta> &field_metas() const { return index_meta_.field_metas(); }
 
   /**
    * @brief 插入一条数据
@@ -61,17 +61,34 @@ public:
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 
   /**
+   * @brief 缓存插入一条数据，缓存删除一条数据
+   *
+   * @param record 插入的记录，当前假设记录是定长的
+   * @param[in] rid   插入的记录的位置
+   */
+  virtual RC cache_insert_entry(const char *record, const RID *rid) = 0;
+  virtual RC cache_delete_entry(const char *record, const RID *rid) = 0;
+
+  /**
+   * @brief 刷新缓存插入的数据，刷新缓存删除的数据
+   */
+  virtual RC flush_cached_entries() = 0;
+
+  /**
+   * @brief 清空缓存插入的数据，清空缓存删除的数据
+   */
+  virtual RC clear_cached_entries() = 0;
+
+  /**
    * @brief 创建一个索引数据的扫描器
    *
-   * @param left_key 要扫描的左边界
-   * @param left_len 左边界的长度
+   * @param left_keys 要扫描的左边界
    * @param left_inclusive 是否包含左边界
-   * @param right_key 要扫描的右边界
-   * @param right_len 右边界的长度
+   * @param right_keys 要扫描的右边界
    * @param right_inclusive 是否包含右边界
    */
-  virtual IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive, const char *right_key,
-      int right_len, bool right_inclusive) = 0;
+  virtual IndexScanner *create_scanner(const std::vector<const char *> &left_keys, bool left_inclusive,
+      const std::vector<const char *> &right_keys, bool right_inclusive) = 0;
 
   /**
    * @brief 同步索引数据到磁盘
@@ -80,11 +97,10 @@ public:
   virtual RC sync() = 0;
 
 protected:
-  RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
+  RC init(const IndexMeta &index_meta);
 
 protected:
   IndexMeta index_meta_;  ///< 索引的元数据
-  FieldMeta field_meta_;  ///< 索引了哪个字段
 };
 
 /**

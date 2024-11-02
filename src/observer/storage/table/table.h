@@ -79,8 +79,26 @@ public:
    */
   RC insert_record(Record &record);
   RC delete_record(const Record &record);
-  /// 更新受影响的列的索引
-  RC update_index(const Record &record, const std::vector<FieldMeta> &affectedFields);
+
+  /**
+   * @brief 缓存插入索引 和 缓存删除索引
+   * @details
+   * 缓存插入索引和缓存删除索引是用于在更新记录时，缓存需要更新的索引，affectedFields是受影响的字段，只有这些字段对应的索引需要更新
+   */
+  RC index_cache_insert_entry(const Record &record, const std::vector<FieldMeta> &affectedFields);
+  RC index_cache_delete_entry(const Record &record, const std::vector<FieldMeta> &affectedFields);
+
+  /**
+   * @brief 刷新缓存插入索引 和 刷新缓存删除索引
+   * @details 刷新缓存插入索引和刷新缓存删除索引是用于在提交事务时，刷新缓存中需要更新的索引
+   */
+  RC index_flush_cached_entries();
+
+  /**
+   * @brief 清空缓存插入索引 和 清空缓存删除索引
+   * @details 清空缓存插入索引和清空缓存删除索引是用于在提交事务时，清空缓存中需要更新的索引
+   */
+  RC clear_cached_entries();
 
   RC delete_record(const RID &rid);
   RC get_record(const RID &rid, Record &record);
@@ -88,7 +106,7 @@ public:
   RC recover_insert_record(Record &record);
 
   // TODO refactor
-  RC create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name);
+  RC create_index(Trx *trx, const std::vector<const FieldMeta *> &field_metas, const char *index_name, bool is_unique);
 
   RC get_record_scanner(RecordFileScanner &scanner, Trx *trx, ReadWriteMode mode);
 
@@ -125,9 +143,12 @@ private:
 
 public:
   Index *find_index(const char *index_name) const;
-  Index *find_index_by_field(const char *field_name) const;
+  Index *find_index_by_fields(const std::vector<const char *> &field_names) const;
 
   std::string text_vector_data_file() const;
+
+  bool is_outer_table() const { return is_outer_table_; }
+  void set_is_outer_table(bool is_outer_table) { is_outer_table_ = is_outer_table; }
 
 private:
   Db                *db_ = nullptr;
@@ -136,4 +157,6 @@ private:
   DiskBufferPool    *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
   RecordFileHandler *record_handler_   = nullptr;  /// 记录操作
   vector<Index *>    indexes_;
+
+  bool is_outer_table_ = false; // 子查询用。判断是否是外层查询的表
 };
