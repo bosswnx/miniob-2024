@@ -539,42 +539,69 @@ RC Table::delete_record(const Record &record)
   return rc;
 }
 
-RC Table::update_index(const Record &record, const std::vector<FieldMeta> &affectedFields)
+RC Table::index_cache_insert_entry(const Record &record, const std::vector<FieldMeta> &affectedFields)
 {
-  RC                   rc = RC::SUCCESS;
-  std::vector<Index *> indexNeedUpdate;
-  // 找到需要更新的索引
+  RC rc = RC::SUCCESS;
   for (auto index : indexes_) {
-    bool needUpdate = false;
-    // 遍历当前索引的全部字段看看收到影响的字段是否在当前索引中
+    bool updated = false;
     for (auto field : affectedFields) {
-      for (auto field_meta : index->index_meta().field_metas()) {
-        if (strcmp(field.name(), field_meta.name()) == 0) {
-          needUpdate = true;
-          indexNeedUpdate.push_back(index);
+      if (index->index_meta().has_field(field.name())) {
+        updated = true;
+        rc      = index->cache_insert_entry(record.data(), &record.rid());
+        if (rc != RC::SUCCESS) {
           break;
         }
-      }
-      if (needUpdate) {
         break;
       }
     }
+    if (updated) {
+      break;
+    }
   }
-  // 操你妈，这里他妈不用删除旧的索引，我真他妈想不到他是怎么处理的 BEGIN
-  // 但其实我感觉应该是删除有 bug
-  // for (auto index : indexNeedUpdate) {
-  //   rc = index->delete_entry(old_record.data(), &old_record.rid());
-  //   if (OB_FAIL(rc)) {
-  //     LOG_WARN("delete index entry failed: %s", strrc(rc));
-  //     return rc;
-  //   }
-  // }
-  // 操你妈，这里他妈不用删除旧的索引，我真他妈想不到他是怎么处理的 END
-  for (auto index : indexNeedUpdate) {
-    rc = index->insert_entry(record.data(), &record.rid());
-    if (OB_FAIL(rc)) {
-      LOG_WARN("insert index entry failed: %s", strrc(rc));
-      return rc;
+  return RC::SUCCESS;
+}
+
+RC Table::index_cache_delete_entry(const Record &record, const std::vector<FieldMeta> &affectedFields)
+{
+  RC rc = RC::SUCCESS;
+  for (auto index : indexes_) {
+    bool updated = false;
+    for (auto field : affectedFields) {
+      if (index->index_meta().has_field(field.name())) {
+        updated = true;
+        rc      = index->cache_delete_entry(record.data(), &record.rid());
+        if (rc != RC::SUCCESS) {
+          break;
+        }
+        break;
+      }
+    }
+    if (updated) {
+      break;
+    }
+  }
+  return rc;
+}
+
+RC Table::index_flush_cached_entries()
+{
+  RC rc = RC::SUCCESS;
+  for (auto index : indexes_) {
+    rc = index->flush_cached_entries();
+    if (rc != RC::SUCCESS) {
+      break;
+    }
+  }
+  return rc;
+}
+
+RC Table::clear_cached_entries()
+{
+  RC rc = RC::SUCCESS;
+  for (auto index : indexes_) {
+    rc = index->clear_cached_entries();
+    if (rc != RC::SUCCESS) {
+      break;
     }
   }
   return rc;

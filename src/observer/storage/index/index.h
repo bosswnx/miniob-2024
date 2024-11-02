@@ -61,6 +61,25 @@ public:
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 
   /**
+   * @brief 缓存插入一条数据，缓存删除一条数据
+   *
+   * @param record 插入的记录，当前假设记录是定长的
+   * @param[in] rid   插入的记录的位置
+   */
+  virtual RC cache_insert_entry(const char *record, const RID *rid) = 0;
+  virtual RC cache_delete_entry(const char *record, const RID *rid) = 0;
+
+  /**
+   * @brief 刷新缓存插入的数据，刷新缓存删除的数据
+   */
+  virtual RC flush_cached_entries() = 0;
+
+  /**
+   * @brief 清空缓存插入的数据，清空缓存删除的数据
+   */
+  virtual RC clear_cached_entries() = 0;
+
+  /**
    * @brief 创建一个索引数据的扫描器
    *
    * @param left_keys 要扫描的左边界

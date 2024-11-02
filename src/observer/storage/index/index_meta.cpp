@@ -99,3 +99,13 @@ void IndexMeta::desc(ostream &os) const
   }
   os << "]";
 }
+
+bool IndexMeta::has_field(const std::string &field_name) const
+{
+  for (const FieldMeta &field_meta : field_metas_) {
+    if (field_meta.name() == field_name) {
+      return true;
+    }
+  }
+  return false;
+}

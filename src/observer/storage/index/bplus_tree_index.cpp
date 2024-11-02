@@ -107,6 +107,30 @@ RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
   return index_handler_.delete_entry(user_keys, rid);
 }
 
+RC BplusTreeIndex::cache_insert_entry(const char *record, const RID *rid)
+{
+  std::vector<const char *> user_keys;
+  for (const auto &field_meta : field_metas()) {
+    auto user_key = record + field_meta.offset();
+    user_keys.push_back(user_key);
+  }
+  return index_handler_.cache_insert_entry(user_keys, rid);
+}
+
+RC BplusTreeIndex::cache_delete_entry(const char *record, const RID *rid)
+{
+  std::vector<const char *> user_keys;
+  for (const auto &field_meta : field_metas()) {
+    auto user_key = record + field_meta.offset();
+    user_keys.push_back(user_key);
+  }
+  return index_handler_.cache_delete_entry(user_keys, rid);
+}
+
+RC BplusTreeIndex::flush_cached_entries() { return index_handler_.flush_cached_entries(); }
+
+RC BplusTreeIndex::clear_cached_entries() { return index_handler_.clear_cached_entries(); }
+
 IndexScanner *BplusTreeIndex::create_scanner(const std::vector<const char *> &left_keys, bool left_inclusive,
     const std::vector<const char *> &right_keys, bool right_inclusive)
 {
