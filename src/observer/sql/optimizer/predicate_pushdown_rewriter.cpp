@@ -50,7 +50,7 @@ RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bo
   }
   
   bool is_or = false;
-  if (predicate_expr->type() == ExprType::CONJUNCTION) {
+  if (predicate_expr != nullptr && predicate_expr->type() == ExprType::CONJUNCTION) {
     auto conjunction_expr = static_cast<ConjunctionExpr *>(predicate_expr.get());
     if (conjunction_expr->conjunction_type() == ConjunctionExpr::Type::OR) {
       if (conjunction_expr->has_rewrite_tried_) {

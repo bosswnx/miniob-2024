@@ -187,6 +187,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
 
   need_disconnect = true;
   empty_result_flag = false;
+  delayed_table_header.clear();
 
   SqlResult *sql_result = event->sql_result();
 
