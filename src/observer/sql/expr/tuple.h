@@ -229,6 +229,15 @@ public:
 
     const FieldExpr *field_expr = speces_[index].get();
     const FieldMeta *field_meta = field_expr->field().meta();
+
+    // size_t length = std::max(cell.data_length(), field_meta->len());
+    size_t length;
+    if (field_meta->type() == AttrType::CHARS) {
+      length = std::min(cell.data_length(), field_meta->len()); // \0，但是不会超过字段长度
+    } else {
+      length = field_meta->len();
+    }
+
     if (data == nullptr) {
       if (field_meta->type() == AttrType::TEXTS && !cell.is_null()) {
         TextData text_data = {
@@ -236,9 +245,9 @@ public:
             .str = reinterpret_cast<const TextData *>(cell.data())->str,
         };
         TextUtils::dump_text(table_, &text_data);
-        memcpy(this->record_->data() + field_meta->offset(), &text_data, cell.data_length());
+        memcpy(this->record_->data() + field_meta->offset(), &text_data, length);
       } else {
-        memcpy(this->record_->data() + field_meta->offset(), cell.data(), cell.data_length());
+        memcpy(this->record_->data() + field_meta->offset(), cell.data(), length);
       }
       if (cell.is_null()) {
         bitmap->set_bit(field_meta->field_id());  // 设置 null bitmap
@@ -252,9 +261,9 @@ public:
             .str = reinterpret_cast<const TextData *>(cell.data())->str,
         };
         TextUtils::dump_text(table_, &text_data);
-        memcpy(data + field_meta->offset(), &text_data, cell.data_length());
+        memcpy(data + field_meta->offset(), &text_data, length);
       } else {
-        memcpy(data + field_meta->offset(), cell.data(), cell.data_length());
+        memcpy(data + field_meta->offset(), cell.data(), length);
       }
       Bitmap new_bitmap(data, null_bitmap_start);
       if (cell.is_null()) {
