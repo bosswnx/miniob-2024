@@ -72,6 +72,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         TABLE
         TABLES
         INDEX
+        UNIQUE
         CALC
         SELECT
         DESC
@@ -323,12 +324,29 @@ create_index_stmt:    /*create index 语句的语法解析树*/
       create_index.index_name = $3;
       create_index.relation_name = $5;
       create_index.attribute_names = *$7;
+      create_index.is_unique = false;
       free($3);
       free($5);
       if ($7 != nullptr) {
         // 因为是从右往左解析的，所以需要反转
         std::reverse($$->create_index.attribute_names.begin(), $$->create_index.attribute_names.end());
         delete $7;
+      }
+    }
+    | CREATE UNIQUE INDEX ID ON ID LBRACE id_list RBRACE
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
+      CreateIndexSqlNode &create_index = $$->create_index;
+      create_index.index_name = $4;
+      create_index.relation_name = $6;
+      create_index.attribute_names = *$8;
+      create_index.is_unique = true;
+      free($4);
+      free($6);
+      if ($8 != nullptr) {
+        // 因为是从右往左解析的，所以需要反转
+        std::reverse($$->create_index.attribute_names.begin(), $$->create_index.attribute_names.end());
+        delete $8;
       }
     }
     ;

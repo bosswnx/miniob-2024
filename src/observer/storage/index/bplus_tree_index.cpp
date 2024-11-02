@@ -37,7 +37,8 @@ RC BplusTreeIndex::create(Table *table, const std::string &file_name, const Inde
     attr_types.push_back(field_meta.type());
     attr_lengths.push_back(field_meta.len());
   }
-  RC rc = index_handler_.create(table->db()->log_handler(), bpm, file_name, attr_types, attr_lengths);
+  RC rc = index_handler_.create(
+      table->db()->log_handler(), bpm, file_name, attr_types, attr_lengths, index_meta.is_unique());
   if (RC::SUCCESS != rc) {
     LOG_WARN("Failed to create index_handler, file_name:%s, index:%s, rc:%s",
         file_name.c_str(), index_meta.name().c_str(), strrc(rc));

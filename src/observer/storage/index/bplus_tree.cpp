@@ -803,8 +803,8 @@ RC BplusTreeHandler::sync()
 }
 
 RC BplusTreeHandler::create(LogHandler &log_handler, BufferPoolManager &bpm, const std::string &file_name,
-    const std::vector<AttrType> &attr_types, const std::vector<int> &attr_lengths, int internal_max_size /* = -1*/,
-    int leaf_max_size /* = -1 */)
+    const std::vector<AttrType> &attr_types, const std::vector<int> &attr_lengths, bool is_unique,
+    int internal_max_size /* = -1 */, int leaf_max_size /* = -1 */)
 {
   RC rc = bpm.create_file(file_name.c_str());
   if (OB_FAIL(rc)) {
@@ -822,7 +822,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, BufferPoolManager &bpm, con
   }
   LOG_INFO("Successfully open index file %s.", file_name.c_str());
 
-  rc = this->create(log_handler, *bp, attr_types, attr_lengths, internal_max_size, leaf_max_size);
+  rc = this->create(log_handler, *bp, attr_types, attr_lengths, is_unique, internal_max_size, leaf_max_size);
   if (OB_FAIL(rc)) {
     bpm.close_file(file_name.c_str());
     return rc;
@@ -833,8 +833,8 @@ RC BplusTreeHandler::create(LogHandler &log_handler, BufferPoolManager &bpm, con
 }
 
 RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool,
-    const std::vector<AttrType> &attr_types, const std::vector<int> &attr_lengths, int internal_max_size /* = -1 */,
-    int leaf_max_size /* = -1 */)
+    const std::vector<AttrType> &attr_types, const std::vector<int> &attr_lengths, bool is_unique,
+    int internal_max_size /* = -1 */, int leaf_max_size /* = -1 */)
 {
   if (internal_max_size < 0) {
     internal_max_size = calc_internal_page_capacity(attr_lengths);
@@ -873,6 +873,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool
   char            *pdata         = header_frame->data();
   IndexFileHeader *file_header   = (IndexFileHeader *)pdata;
   file_header->key_length        = key_length;
+  file_header->is_unique         = is_unique;
   file_header->internal_max_size = internal_max_size;
   file_header->leaf_max_size     = leaf_max_size;
   file_header->root_page         = BP_INVALID_PAGE_NUM;
@@ -1523,7 +1524,11 @@ MemPoolItem::item_unique_ptr BplusTreeHandler::make_key(const std::vector<const 
     memcpy(static_cast<char *>(key.get()) + idx, user_keys[i], file_header_.attr_lengths[i]);
     idx += file_header_.attr_lengths[i];
   }
-  memcpy(static_cast<char *>(key.get()) + idx, rid, sizeof(RID));
+  if (file_header_.is_unique) {
+    memset(static_cast<char *>(key.get()) + idx, 0, sizeof(RID));
+  } else {
+    memcpy(static_cast<char *>(key.get()) + idx, rid, sizeof(RID));
+  }
   return key;
 }
 

@@ -51,7 +51,7 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
 
     if (conjunction_expr->conjunction_type() == ConjunctionExpr::Type::AND) {
       if (constant_value == true) {
-        child_exprs.erase(iter);
+        iter = child_exprs.erase(iter);
       } else {
         // always be false
         std::unique_ptr<Expression> child_expr = std::move(child_exprs.front());
@@ -68,7 +68,7 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
         expr = std::move(child_expr);
         return rc;
       } else {
-        child_exprs.erase(iter);
+        iter = child_exprs.erase(iter);
       }
     }
   }

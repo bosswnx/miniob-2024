@@ -35,12 +35,13 @@ class IndexMeta
 public:
   IndexMeta() = default;
 
-  RC init(const std::string &name, const std::vector<const FieldMeta *> &field_metas);
-  RC init(const std::string &name, const std::vector<FieldMeta> &field_metas);
+  RC init(const std::string &name, const std::vector<const FieldMeta *> &field_metas, bool is_unique);
+  RC init(const std::string &name, const std::vector<FieldMeta> &field_metas, bool is_unique);
 
 public:
   const std::string            &name() const;
   const std::vector<FieldMeta> &field_metas() const;
+  bool                          is_unique() const { return is_unique_; }
 
   void desc(ostream &os) const;
 
@@ -53,4 +54,5 @@ public:
 protected:
   std::string            name_;         // index's name
   std::vector<FieldMeta> field_metas_;  // field's metas
+  bool                   is_unique_;    // whether is unique index
 };

@@ -205,6 +205,7 @@ struct IndexFileHeader
   int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
   int32_t  key_length;         ///< 键值长度 attr_length + sizeof(RID)
   int32_t  attr_num;           ///< 属性个数
+  bool     is_unique;          ///< 是否唯一索引
   AttrType attr_types[MAX_KEY_NUM];
   int32_t  attr_lengths[MAX_KEY_NUM];
 
@@ -488,10 +489,10 @@ public:
    * @param leaf_max_size 叶子节点最大大小
    */
   RC create(LogHandler &log_handler, BufferPoolManager &bpm, const std::string &file_name,
-      const std::vector<AttrType> &attr_types, const std::vector<int> &attr_lengths, int internal_max_size = -1,
-      int leaf_max_size = -1);
+      const std::vector<AttrType> &attr_types, const std::vector<int> &attr_lengths, bool is_unique,
+      int internal_max_size = -1, int leaf_max_size = -1);
   RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, const std::vector<AttrType> &attr_types,
-      const std::vector<int> &attr_lengths, int internal_max_size = -1, int leaf_max_size = -1);
+      const std::vector<int> &attr_lengths, bool is_unique, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
    * @brief 打开一个B+树
