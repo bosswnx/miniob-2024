@@ -1523,7 +1523,7 @@ MemPoolItem::item_unique_ptr BplusTreeHandler::make_key(const std::vector<const 
     memcpy(static_cast<char *>(key.get()) + idx, user_keys[i], file_header_.attr_lengths[i]);
     idx += file_header_.attr_lengths[i];
   }
-  memcpy(static_cast<char *>(key.get()) + idx, &rid, sizeof(rid));
+  memcpy(static_cast<char *>(key.get()) + idx, rid, sizeof(RID));
   return key;
 }
 
@@ -1548,12 +1548,9 @@ RC BplusTreeHandler::insert_entry(const std::vector<const char *> &user_keys, co
 
   if (is_empty()) {
     root_lock_.lock();
-    if (is_empty()) {
-      rc = create_new_tree(mtr, key, rid);
-      root_lock_.unlock();
-      return rc;
-    }
+    rc = create_new_tree(mtr, key, rid);
     root_lock_.unlock();
+    return rc;
   }
 
   Frame *frame = nullptr;
@@ -1566,7 +1563,7 @@ RC BplusTreeHandler::insert_entry(const std::vector<const char *> &user_keys, co
 
   rc = insert_entry_into_leaf_node(mtr, frame, key, rid);
   if (OB_FAIL(rc)) {
-    LOG_TRACE("Failed to insert into leaf of index, rid:%s. rc=%s", rid->to_string().c_str(), strrc(rc));
+    LOG_WARN("Failed to insert into leaf of index, rid:%s. rc=%s", rid->to_string().c_str(), strrc(rc));
     return rc;
   }
 

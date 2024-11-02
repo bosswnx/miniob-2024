@@ -326,6 +326,8 @@ create_index_stmt:    /*create index 语句的语法解析树*/
       free($3);
       free($5);
       if ($7 != nullptr) {
+        // 因为是从右往左解析的，所以需要反转
+        std::reverse($$->create_index.attribute_names.begin(), $$->create_index.attribute_names.end());
         delete $7;
       }
     }

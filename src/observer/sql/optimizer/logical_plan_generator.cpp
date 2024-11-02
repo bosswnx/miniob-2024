@@ -456,6 +456,9 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
 
 RC LogicalPlanGenerator::create_order_by_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
+  if (select_stmt->order_by_exprs_.empty()) {
+    return RC::SUCCESS;
+  }
   auto order_by_oper = make_unique<OrderByLogicalOperator>(
       std::move(select_stmt->order_by_exprs_), std::move(select_stmt->order_by_descs_));
   logical_operator = std::move(order_by_oper);
