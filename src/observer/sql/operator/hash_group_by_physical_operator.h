@@ -28,7 +28,8 @@ class HashGroupByPhysicalOperator : public GroupByPhysicalOperator
 {
 public:
   HashGroupByPhysicalOperator(
-      std::vector<std::unique_ptr<Expression>> &&group_by_exprs, std::vector<Expression *> &&expressions);
+      std::vector<std::unique_ptr<Expression>> &&group_by_exprs, 
+      std::vector<Expression *> &&expressions);
 
   virtual ~HashGroupByPhysicalOperator() = default;
 
@@ -59,4 +60,8 @@ private:
 
   std::vector<GroupType>::iterator current_group_;
   bool                             first_emited_ = false;  /// 第一条数据是否已经输出
+
+  std::vector<Expression *> having_aggr_value_exprs_;
+  std::vector<Expression *> having_aggr_exprs_;
+  std::vector<Value> having_aggr_values; 
 };

@@ -57,7 +57,6 @@ RC PredicatePhysicalOperator::next()
       tuple = joined_tuple;
     }
     
-
     Value value;
     rc = expression_->get_value(*tuple, value, trx_);
     if (rc != RC::SUCCESS) {

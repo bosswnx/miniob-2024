@@ -22,7 +22,8 @@ using namespace common;
 
 HashGroupByPhysicalOperator::HashGroupByPhysicalOperator(
     vector<unique_ptr<Expression>> &&group_by_exprs, vector<Expression *> &&expressions)
-    : GroupByPhysicalOperator(std::move(expressions)), group_by_exprs_(std::move(group_by_exprs))
+    : GroupByPhysicalOperator(std::move(expressions)), 
+    group_by_exprs_(std::move(group_by_exprs))
 {
 }
 
@@ -43,7 +44,24 @@ RC HashGroupByPhysicalOperator::open(Trx *trx)
     return rc;
   }
 
+  // // 创建 havings 中的聚合表达式等
+  // having_aggr_value_exprs_.reserve(having_aggr_exprs_.size());
+  // for (Expression *expr : having_aggr_exprs_) {
+  //   auto       *aggregate_expr = static_cast<AggregateExpr *>(expr);
+  //   Expression *child_expr     = aggregate_expr->child().get();
+  //   ASSERT(child_expr != nullptr, "(having) aggregate expression must have a child expression");
+  //   having_aggr_value_exprs_.emplace_back(child_expr);
+  // }
+  // std::vector<std::unique_ptr<Aggregator>> having_aggregator_list;
+  // // 创建 having 的 aggregator list
+  // having_aggregator_list.reserve(having_aggr_exprs_.size());
+  // for (Expression *expr : having_aggr_exprs_) {
+  //   auto *aggregate_expr = static_cast<AggregateExpr *>(expr);
+  //   having_aggregator_list.emplace_back(aggregate_expr->create_aggregator());
+  // }
+
   ExpressionTuple<Expression *> group_value_expression_tuple(value_expressions_);
+  // ExpressionTuple<Expression *> having_group_value_expression_tuple(having_aggr_value_exprs_);
 
   ValueListTuple group_by_evaluated_tuple;
 
@@ -64,6 +82,7 @@ RC HashGroupByPhysicalOperator::open(Trx *trx)
 
     // 计算需要做聚合的值
     group_value_expression_tuple.set_tuple(child_tuple);
+    // having_group_value_expression_tuple.set_tuple(child_tuple);
 
     // 计算聚合值
     GroupValueType &group_value = get<1>(*found_group);
@@ -72,6 +91,11 @@ RC HashGroupByPhysicalOperator::open(Trx *trx)
       LOG_WARN("failed to aggregate values. rc=%s", strrc(rc));
       return rc;
     }
+    // rc = aggregate(having_aggregator_list, having_group_value_expression_tuple);
+    // if (OB_FAIL(rc)) {
+    //   LOG_WARN("(having) failed to aggregate values. rc=%s", strrc(rc));
+    //   return rc;
+    // }
   }
 
   if (RC::RECORD_EOF == rc) {
@@ -92,6 +116,17 @@ RC HashGroupByPhysicalOperator::open(Trx *trx)
       return rc;
     }
   }
+
+  // having 中 aggr 表达式的结果
+  // for (unique_ptr<Aggregator> &aggregator : having_aggregator_list) {
+  //   Value value;
+  //   rc = aggregator->evaluate(value);
+  //   if (OB_FAIL(rc)) {
+  //     LOG_WARN("(having) failed to evaluate aggregator. rc=%s", strrc(rc));
+  //     return rc;
+  //   }
+  //   having_aggr_values.emplace_back(value);
+  // }
 
   current_group_ = groups_.begin();
   first_emited_  = false;

@@ -423,6 +423,24 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
     return RC::SUCCESS;
   }
 
+  // having aggrs
+  for (auto &expr : select_stmt->filter_stmt_having()->conditions_) {
+    if (expr->type() == ExprType::COMPARISON) {
+      auto cmp_expr = static_cast<ComparisonExpr *>(expr.get());
+      if (cmp_expr->left()->type() == ExprType::AGGREGATION) {
+        auto aggr_expr = static_cast<AggregateExpr *>(cmp_expr->left().get());
+        aggregate_expressions.push_back(aggr_expr);
+        LOG_DEBUG("logical_gen_groupby: having aggr expr type in left comparison");
+      }
+      if (cmp_expr->right()->type() == ExprType::AGGREGATION) {
+        auto aggr_expr = static_cast<AggregateExpr *>(cmp_expr->right().get());
+        aggregate_expressions.push_back(aggr_expr);
+        LOG_DEBUG("logical_gen_groupby: having aggr expr type in right comparison");
+      }
+    }
+
+  }
+
   if (found_unbound_column) {
     LOG_WARN("column must appear in the GROUP BY clause or must be part of an aggregate function");
     return RC::INVALID_ARGUMENT;

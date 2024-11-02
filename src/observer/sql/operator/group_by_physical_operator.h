@@ -52,6 +52,6 @@ protected:
   RC evaluate(GroupValueType &group_value);
 
 protected:
-  std::vector<Expression *> aggregate_expressions_;  /// 聚合表达式
-  std::vector<Expression *> value_expressions_;      /// 计算聚合时的表达式
+  std::vector<Expression *> aggregate_expressions_;  /// 聚合表达式 // AggregateExpr
+  std::vector<Expression *> value_expressions_;      /// 计算聚合时的表达式 // FieldExpr 或者其他
 };
