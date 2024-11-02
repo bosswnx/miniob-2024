@@ -145,7 +145,7 @@ public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_fields(const std::vector<const char *> &field_names) const;
 
-  std::string text_data_file() const;
+  std::string text_vector_data_file() const;
 
   bool is_outer_table() const { return is_outer_table_; }
   void set_is_outer_table(bool is_outer_table) { is_outer_table_ = is_outer_table; }

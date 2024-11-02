@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/memory.h"
 #include "common/type/attr_type.h"
 #include "common/type/data_type.h"
+#include "type/vector_type.h"
 
 /**
  * @brief 属性的值
@@ -245,6 +246,7 @@ public:
 
   const char *data() const;
 
+  // 返回string,text 的长度（不包括结尾零），返回 vector 的大小（dimension*sizeof(float))
   int      length() const { return length_; }
 
   /// 复制数据时使用
@@ -255,9 +257,9 @@ public:
     if (attr_type_ == AttrType::CHARS) {
       return length_ + 1;
     } else if (attr_type_ == AttrType::TEXTS) {
-      return offsetof(TextData, TextData::len) + sizeof(TextData::len);  // 只复制前两项成员
+      return static_cast<int>(TextData::field_size);  // 只复制前两项成员
     } else if (attr_type_ == AttrType::VECTORS) {
-      return length_ * sizeof(float);
+      return static_cast<int>(VectorData::field_size);  // 只复制前两项成员
     } else {
       return length_;     // null 返回 0
     }
@@ -275,8 +277,8 @@ public:
   float  get_float() const;
   string get_string() const;
   bool   get_boolean() const;
-  vector<float> get_vector() const;
-  
+  const VectorData &get_vector() const;
+
   // 这里把下面的 setter 都放到了 public 里面，这样可以直接通过 Value 对象调用这些方法
   void set_int(int val);
   void set_float(float val);
@@ -284,7 +286,7 @@ public:
   void set_date(const char *s);  // 从 "YYYY-MM-DD" 格式的日期字符串创建 Value
   void set_date(int val);        // 从 YYYYMMDD 格式的整数创建 Value
   void set_vector(const char *s);
-  void set_vector(const vector<float> &vec);
+  void set_vector(const VectorData &vector, bool give_ownership = false);
   void set_string_from_other(const Value &other);
   void set_text_from_other(const Value &other);
   void set_text(const char *s, int len, bool give_ownership = false);
@@ -299,7 +301,7 @@ public:
 
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;
-  int      length_    = 0;  // 对于向量数据，length_ 表示向量的维度
+  int      length_    = 0;
 
   union Val
   {
@@ -307,7 +309,7 @@ private:
     float   float_value_;
     bool    bool_value_;
     char   *pointer_value_;
-    vector<float> *vector_value_; // 向量数据
+    VectorData     vector_value_;  // 向量数据
     TextData       text_value_;
   } value_ = {.int_value_ = 0};
 
