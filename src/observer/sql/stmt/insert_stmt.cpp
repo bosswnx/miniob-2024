@@ -65,8 +65,8 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
     }
     // 检查 VECTOR 的长度是否超过限制
     if (table_meta.field(i)->type() == AttrType::VECTORS &&
-        values[i].length() > table_meta.field(i)->vector_dim() * sizeof(float)) {
-      LOG_WARN("value length exceeds limit: %d > %d", values[i].length(), table_meta.field(i)->vector_dim());
+        static_cast<size_t>(values[i].length()) > table_meta.field(i)->vector_dim() * sizeof(float)) {
+      LOG_WARN("vector length exceeds limit: %d > %d", values[i].length()/4, table_meta.field(i)->vector_dim());
       return RC::INVALID_ARGUMENT;
     }
   }

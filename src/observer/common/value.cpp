@@ -277,8 +277,12 @@ void Value::set_vector(const char *s)
     value_.vector_value_.dim++;
     numbers.push_back(std::stof(token));
   }
+  // numbers 可能为空，cpp 允许分配零长数组，分配后也能正确‘释放’
   auto buffer = new float[numbers.size()];
-  memcpy(buffer, numbers.data(), numbers.size() * sizeof(float));
+  // 但此时 ::data() 返回的指针不可解引用，而 memcpy 要求 src 是合法指针，即使复制长度为 0
+  if (!numbers.empty()) {
+    memcpy(buffer, numbers.data(), numbers.size() * sizeof(float));
+  }
   value_.vector_value_.vector = buffer;
   length_                     = value_.vector_value_.dim * sizeof(float);
 }
