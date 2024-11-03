@@ -444,6 +444,17 @@ int Value::compare(const Value &other) const
   return DataType::type_instance(this->attr_type_)->compare(*this, other);
 }
 
+// 专门为了排序设计的比较函数，null 排在最前面，且 null 之间不会相等
+int Value::compare_for_sort(const Value &other) const
+{
+  if (is_null()) {
+    return -1;
+  } else if (other.is_null()) {
+    return 1;
+  }
+  return compare(other);
+}
+
 int Value::get_int() const
 {
   switch (attr_type_) {

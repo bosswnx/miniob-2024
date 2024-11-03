@@ -70,12 +70,22 @@ public:
   {
     // TODO: optimized the comparison
     Value left;
-    left.set_type(attr_type_);
-    left.set_data(v1, attr_length_);
+    char  is_null = *v1;  // 每个字段的第一个字节是用来判断是否为 null 的标志位
+    if (is_null) {
+      left.set_null();
+    } else {
+      left.set_type(attr_type_);
+      left.set_data(v1 + 1, attr_length_);
+    }
     Value right;
-    right.set_type(attr_type_);
-    right.set_data(v2, attr_length_);
-    return DataType::type_instance(attr_type_)->compare(left, right);
+    is_null = *v2;
+    if (is_null) {
+      right.set_null();
+    } else {
+      right.set_type(attr_type_);
+      right.set_data(v2 + 1, attr_length_);
+    }
+    return left.compare_for_sort(right);
   }
 
 private:
@@ -114,13 +124,19 @@ public:
       v2 += attr_comparator.attr_length();
     }
 
+    if (not_compare_rid_) {
+      return 0;
+    }
     const RID *rid1 = (const RID *)(v1);
     const RID *rid2 = (const RID *)(v2);
     return RID::compare(rid1, rid2);
   }
 
+  void set_not_compare_rid(bool not_compare_rid) { not_compare_rid_ = not_compare_rid; }
+
 private:
   std::vector<AttrComparator> attr_comparators_;  // 多字段索引，每个字段一个比较器
+  bool                        not_compare_rid_ = false;
 };
 
 /**
@@ -203,11 +219,12 @@ struct IndexFileHeader
   PageNum  root_page;          ///< 根节点在磁盘中的页号
   int32_t  internal_max_size;  ///< 内部节点最大的键值对数
   int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
-  int32_t  key_length;         ///< 键值长度 attr_length + sizeof(RID)
+  int32_t  key_length;         ///< 键值长度 sum(attr_lengths) + sizeof(RID)
   int32_t  attr_num;           ///< 属性个数
   bool     is_unique;          ///< 是否唯一索引
   AttrType attr_types[MAX_KEY_NUM];
-  int32_t  attr_lengths[MAX_KEY_NUM];
+  int32_t  attr_lengths[MAX_KEY_NUM];  /// 注意：这里的值是 sizeof(attr_type) + 1，多的这一个字节是放在数据前用来判断
+                                      /// null 的标志位
 
   const string to_string() const
   {

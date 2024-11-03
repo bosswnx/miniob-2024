@@ -866,7 +866,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool
 
   int32_t key_length = 0;
   for (int attr_length : attr_lengths) {
-    key_length += attr_length;
+    key_length += attr_length + 1;  // 多出来的一个字节是用来判断 null 的标志位
   }
   key_length += sizeof(RID);
 
@@ -880,7 +880,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool
   file_header->attr_num          = attr_types.size();
   for (size_t i = 0; i < attr_types.size(); i++) {
     file_header->attr_types[i]   = attr_types[i];
-    file_header->attr_lengths[i] = attr_lengths[i];
+    file_header->attr_lengths[i] = attr_lengths[i] + 1;  // 多出来的一个字节是用来判断 null 的标志位
   }
 
   // 取消记录日志的原因请参考下面的sync调用的地方。
@@ -1281,7 +1281,14 @@ RC BplusTreeHandler::insert_entry_into_leaf_node(BplusTreeMiniTransaction &mtr, 
 {
   LeafIndexNodeHandler leaf_node(mtr, file_header_, frame);
   bool                 exists          = false;  // 该数据是否已经存在指定的叶子节点中了
-  int                  insert_position = leaf_node.lookup(key_comparator_, key, &exists);
+  int                  insert_position = 0;
+  if (file_header_.is_unique) {
+    key_comparator_.set_not_compare_rid(true);
+    insert_position = leaf_node.lookup(key_comparator_, key, &exists);
+    key_comparator_.set_not_compare_rid(false);
+  } else {
+    insert_position = leaf_node.lookup(key_comparator_, key, &exists);
+  }
   if (exists) {
     LOG_TRACE("entry exists");
     return RC::RECORD_DUPLICATE_KEY;
@@ -1524,11 +1531,7 @@ MemPoolItem::item_unique_ptr BplusTreeHandler::make_key(const std::vector<const 
     memcpy(static_cast<char *>(key.get()) + idx, user_keys[i], file_header_.attr_lengths[i]);
     idx += file_header_.attr_lengths[i];
   }
-  if (file_header_.is_unique) {
-    memset(static_cast<char *>(key.get()) + idx, 0, sizeof(RID));
-  } else {
-    memcpy(static_cast<char *>(key.get()) + idx, rid, sizeof(RID));
-  }
+  memcpy(static_cast<char *>(key.get()) + idx, rid, sizeof(RID));
   return key;
 }
 

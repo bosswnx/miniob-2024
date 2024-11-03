@@ -21,6 +21,7 @@ class Bitmap
 public:
   Bitmap();
   Bitmap(char *bitmap, int size);
+  Bitmap(const char *bitmap, int size);
 
   void init(char *bitmap, int size);
   bool get_bit(int index);
