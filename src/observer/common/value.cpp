@@ -429,9 +429,9 @@ string Value::to_string() const
 
 int Value::compare(const Value &other) const
 {
-  // if (is_null() || other.is_null()) {
-  //   return INT32_MAX;  // 空值参与比较，返回 false
-  // }
+  if (is_null() || other.is_null()) {
+    return INT32_MAX;  // 空值参与比较，返回 false
+  }
   if (is_null()) {
     if (other.is_null()) { 
       return 0;

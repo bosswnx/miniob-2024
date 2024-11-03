@@ -540,74 +540,6 @@ RC Table::delete_record(const Record &record)
   return rc;
 }
 
-RC Table::index_cache_insert_entry(const Record &record, const std::vector<FieldMeta> &affectedFields)
-{
-  RC rc = RC::SUCCESS;
-  for (auto index : indexes_) {
-    bool updated = false;
-    for (auto field : affectedFields) {
-      if (index->index_meta().has_field(field.name())) {
-        updated = true;
-        rc      = index->cache_insert_entry(record.data(), &record.rid());
-        if (rc != RC::SUCCESS) {
-          break;
-        }
-        break;
-      }
-    }
-    if (updated) {
-      break;
-    }
-  }
-  return RC::SUCCESS;
-}
-
-RC Table::index_cache_delete_entry(const Record &record, const std::vector<FieldMeta> &affectedFields)
-{
-  RC rc = RC::SUCCESS;
-  for (auto index : indexes_) {
-    bool updated = false;
-    for (auto field : affectedFields) {
-      if (index->index_meta().has_field(field.name())) {
-        updated = true;
-        rc      = index->cache_delete_entry(record.data(), &record.rid());
-        if (rc != RC::SUCCESS) {
-          break;
-        }
-        break;
-      }
-    }
-    if (updated) {
-      break;
-    }
-  }
-  return rc;
-}
-
-RC Table::index_flush_cached_entries()
-{
-  RC rc = RC::SUCCESS;
-  for (auto index : indexes_) {
-    rc = index->flush_cached_entries();
-    if (rc != RC::SUCCESS) {
-      break;
-    }
-  }
-  return rc;
-}
-
-RC Table::clear_cached_entries()
-{
-  RC rc = RC::SUCCESS;
-  for (auto index : indexes_) {
-    rc = index->clear_cached_entries();
-    if (rc != RC::SUCCESS) {
-      break;
-    }
-  }
-  return rc;
-}
-
 RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
 {
   RC rc = RC::SUCCESS;
@@ -679,4 +611,27 @@ RC Table::sync()
 std::string Table::text_vector_data_file() const
 {
   return table_text_vector_data_file(base_dir_.c_str(), table_meta_.name());
+}
+
+RC Table::update_index(const Record &old_record, const Record &new_record, const std::vector<FieldMeta> &affectedFields)
+{
+  RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    bool need_update = false;
+    for (const auto &field : affectedFields) {
+      if (index->index_meta().has_field(field.name())) {
+        need_update = true;
+        break;
+      }
+    }
+    if (need_update) {
+      rc = index->update_entry(old_record.data(), new_record.data(), &old_record.rid());
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to update index. table=%s, index=%s, rc=%s", 
+                 name(), index->index_meta().name().c_str(), strrc(rc));
+        return rc;
+      }
+    }
+  }
+  return RC::SUCCESS;
 }
