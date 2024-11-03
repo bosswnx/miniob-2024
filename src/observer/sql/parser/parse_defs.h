@@ -201,11 +201,13 @@ struct AttrInfoSqlNode
  * @ingroup SQLParser
  * @details 这里也做了很多简化。
  */
+typedef struct ParsedSqlNode SubSelectSqlNode;
 struct CreateTableSqlNode
 {
   std::string                  relation_name;   ///< Relation name
   std::vector<AttrInfoSqlNode> attr_infos;      ///< attributes
   std::string                  storage_format;  ///< storage format
+  SubSelectSqlNode*               sub_select = nullptr;            ///< select stmt
 };
 
 /**

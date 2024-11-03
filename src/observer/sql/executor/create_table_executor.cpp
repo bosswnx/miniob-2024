@@ -32,7 +32,64 @@ RC CreateTableExecutor::execute(SQLStageEvent *sql_event)
   CreateTableStmt *create_table_stmt = static_cast<CreateTableStmt *>(stmt);
 
   const char *table_name = create_table_stmt->table_name().c_str();
-  RC rc = session->get_current_db()->create_table(table_name, create_table_stmt->attr_infos(), create_table_stmt->storage_format());
+
+  RC rc = RC::SUCCESS;
+
+  if (create_table_stmt->physical_operator() != nullptr) {
+    size_t size_ = 0;
+    // create-table-select
+    if (!create_table_stmt->attr_infos().empty()) {
+      // 指定了字段信息
+      rc = session->get_current_db()->create_table(table_name, create_table_stmt->attr_infos(), create_table_stmt->storage_format());
+      size_ = create_table_stmt->attr_infos().size();
+    } else {
+      std::vector<AttrInfoSqlNode> attr_infos;
+      for (int i = 0; i < create_table_stmt->query_fields_meta().size(); ++i) {
+        AttrInfoSqlNode attr_info;
+        attr_info.nullable = create_table_stmt->query_fields_meta()[i].nullable();
+        attr_info.name = create_table_stmt->query_fields_meta()[i].name();
+        attr_info.type = create_table_stmt->query_fields_meta()[i].type();
+        if (attr_info.type == AttrType::VECTORS) {
+          attr_info.arr_len = create_table_stmt->query_fields_meta()[i].vector_dim();
+        } else if (attr_info.type == AttrType::CHARS) {
+          attr_info.arr_len = create_table_stmt->query_fields_meta()[i].len();
+        } else {
+          attr_info.arr_len = 1;
+        }
+        attr_infos.push_back(attr_info);
+      }
+      size_ = attr_infos.size();
+      rc = session->get_current_db()->create_table(table_name, attr_infos, create_table_stmt->storage_format());
+    }
+
+    // 开始插入数据
+    Trx *trx = session->current_trx();
+    rc = create_table_stmt->physical_operator()->open(session->current_trx());
+    Table *table_ = session->get_current_db()->find_table(table_name);
+    while (create_table_stmt->physical_operator()->next() == RC::SUCCESS) {
+      Tuple *tuple = create_table_stmt->physical_operator()->current_tuple();
+      Record record;
+      std::vector<Value> values_;
+      for (size_t i = 0; i < size_; ++i) {
+        Value value;
+        tuple->cell_at(i, value);
+        values_.push_back(value);
+      }
+      rc = table_->make_record(static_cast<int>(values_.size()), values_.data(), record);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to make record. rc=%s", strrc(rc));
+        return rc;
+      }
+      rc = trx->insert_record(table_, record);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
+      }
+    }
+    
+  } else {
+    // normally create table
+    rc = session->get_current_db()->create_table(table_name, create_table_stmt->attr_infos(), create_table_stmt->storage_format());
+  }
 
   return rc;
 }

@@ -66,4 +66,24 @@ public:
   FilterStmt                              *filter_stmt_having_ = nullptr;
   std::vector<std::unique_ptr<Expression>> order_by_exprs_;
   std::vector<bool>                        order_by_descs_;
+
+  std::vector<FieldMeta> get_query_fields() {
+    // 此方法用于 Create-Table-Select
+    std::vector<FieldMeta> query_fields;
+
+    for (auto &expr : query_expressions_) {
+      if (expr->type() == ExprType::FIELD) {
+        // 此时已经将所有的 UnboundFieldExpr 转换为 FieldExpr
+        auto field_expr = static_cast<FieldExpr *>(expr.get());
+        FieldMeta field_meta(*field_expr->field().meta());
+        query_fields.push_back(field_meta);
+      } else {
+        FieldMeta field_meta;
+        field_meta.init(expr->name(), expr->value_type(), 0, expr->value_length(), true, 0);
+        query_fields.push_back(field_meta);
+      }
+    }
+
+    return query_fields;
+  }
 };

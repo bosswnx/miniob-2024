@@ -14,11 +14,14 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "sql/stmt/stmt.h"
 #include "common/types.h"
+#include "sql/operator/physical_operator.h"
+#include "sql/parser/parse_defs.h"
 
 class Db;
 
@@ -42,6 +45,14 @@ public:
   const std::vector<AttrInfoSqlNode> &attr_infos() const { return attr_infos_; }
   const StorageFormat                 storage_format() const { return storage_format_; }
 
+  void set_select_stmt(SelectStmt *select_stmt) { select_stmt_ = select_stmt; }
+  void set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator) { physical_operator_ = std::move(physical_operator); }
+  SelectStmt *select_stmt() const { return select_stmt_; }
+  PhysicalOperator *physical_operator() const { return physical_operator_.get(); }
+
+  const std::vector<FieldMeta> &query_fields_meta() const { return query_fields_meta_; }
+  void set_query_fields(const std::vector<FieldMeta> &query_fields_meta) { query_fields_meta_ = query_fields_meta; }
+
   static RC            create(Db *db, CreateTableSqlNode &create_table, Stmt *&stmt);
   static StorageFormat get_storage_format(const char *format_str);
 
@@ -49,4 +60,8 @@ private:
   std::string                  table_name_;
   std::vector<AttrInfoSqlNode> attr_infos_;
   StorageFormat                storage_format_;
+  
+  SelectStmt *select_stmt_ = nullptr;
+  std::unique_ptr<PhysicalOperator> physical_operator_ = nullptr;
+  std::vector<FieldMeta> query_fields_meta_;
 };
