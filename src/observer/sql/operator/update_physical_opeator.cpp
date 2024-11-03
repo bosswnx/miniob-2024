@@ -75,7 +75,10 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     }
   }
 
-  // 下层算子可能使用索引获取记录，需要推迟索引的更新，避免利用索引遍历记录的同时更新索引
+  if (rc == RC::RECORD_EOF) {
+    rc = RC::SUCCESS;
+  }
+
   child->close();
   if (OB_FAIL(rc)) {
     LOG_WARN("update index failed: %s", strrc(rc));
