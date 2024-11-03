@@ -63,10 +63,10 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
       LOG_WARN("value of column %s cannot be null", table_meta.field(i)->name());
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
-    // 检查 VECTOR 的长度是否超过限制
+    // 检查 VECTOR 的维度是否完全一致
     if (table_meta.field(i)->type() == AttrType::VECTORS &&
-        static_cast<size_t>(values[i].length()) > table_meta.field(i)->vector_dim() * sizeof(float)) {
-      LOG_WARN("vector length exceeds limit: %d > %d", values[i].length()/4, table_meta.field(i)->vector_dim());
+        static_cast<size_t>(values[i].length()) != table_meta.field(i)->vector_dim() * sizeof(float)) {
+      LOG_WARN("vector length exceeds limit: %d != %d", values[i].length()/4, table_meta.field(i)->vector_dim());
       return RC::INVALID_ARGUMENT;
     }
   }
