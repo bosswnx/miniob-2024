@@ -148,7 +148,12 @@ public:
         return rc;
       }
 
-      result = this_value.compare(other_value);
+      if (this_value.is_null() && other_value.is_null()) {
+        // 在 group by 中，null 属于同一类
+        result = 0;
+      } else {
+        result = this_value.compare(other_value);
+      }
       if (0 != result) {
         return rc;
       }
