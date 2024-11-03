@@ -51,6 +51,11 @@ RC FieldMeta::init(const char *name, AttrType attr_type, int attr_offset, int at
     return RC::INVALID_ARGUMENT;
   }
 
+  if (attr_type == AttrType::VECTORS && vector_dim > 16000) {
+    LOG_WARN("vector dim %d exceed 16000", vector_dim);
+    return RC::INVALID_ARGUMENT;
+  }
+
   name_        = name;
   attr_type_   = attr_type;
   attr_len_    = attr_len;
