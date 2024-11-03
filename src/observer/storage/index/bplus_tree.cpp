@@ -1846,6 +1846,26 @@ RC BplusTreeHandler::delete_entry(const std::vector<const char *> &user_keys, co
   return rc;
 }
 
+RC BplusTreeHandler::update_entry(
+    const std::vector<const char *> &old_user_keys, const std::vector<const char *> &new_user_keys, const RID *rid)
+{
+  RC rc = delete_entry(old_user_keys, rid);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to delete old entry. rc=%s", strrc(rc));
+    return rc;
+  }
+  rc = insert_entry(new_user_keys, rid);
+  if (OB_FAIL(rc)) {
+    RC rc2 = insert_entry(old_user_keys, rid);
+    if (OB_FAIL(rc2)) {
+      LOG_WARN("failed to insert old entry. rc=%s", strrc(rc2));
+    }
+    LOG_WARN("failed to insert new entry. rc=%s", strrc(rc));
+    return rc;
+  }
+  return RC::SUCCESS;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 BplusTreeScanner::BplusTreeScanner(BplusTreeHandler &tree_handler)
@@ -2147,83 +2167,5 @@ RC BplusTreeScanner::fix_user_key(
   }
 
   *fixed_key = key_buf;
-  return RC::SUCCESS;
-}
-
-RC BplusTreeHandler::cache_insert_entry(const std::vector<const char *> &user_keys, const RID *rid)
-{
-  auto pkey = make_key(user_keys, rid);
-  entries_need_insert_.emplace_back(std::move(pkey), *rid);
-  return RC::SUCCESS;
-}
-
-RC BplusTreeHandler::cache_delete_entry(const std::vector<const char *> &user_keys, const RID *rid)
-{
-  auto pkey = make_key(user_keys, rid);
-  entries_need_delete_.push_back(std::move(pkey));
-  return RC::SUCCESS;
-}
-
-RC BplusTreeHandler::flush_cached_entries()
-{
-  RC                       rc = RC::SUCCESS;
-  BplusTreeMiniTransaction mtr(*this, &rc);
-  BplusTreeOperationType   op    = BplusTreeOperationType::DELETE;
-  Frame                   *frame = nullptr;
-
-  for (const auto &entry : entries_need_delete_) {
-    const char *key = static_cast<const char *>(entry.get());
-
-    rc = find_leaf(mtr, op, key, frame);
-    if (OB_FAIL(rc)) {
-      LOG_ERROR("failed to find leaf. rc=%s", strrc(rc));
-      return rc;
-    }
-
-    rc = delete_entry_internal(mtr, frame, key);
-    if (OB_FAIL(rc)) {
-      LOG_ERROR("failed to delete entry. rc=%s", strrc(rc));
-      return rc;
-    }
-  }
-
-  LOG_TRACE("flush cached delete entry success");
-
-  op = BplusTreeOperationType::INSERT;
-
-  for (const auto &entry : entries_need_insert_) {
-    const char *key = static_cast<const char *>(entry.first.get());
-    const RID  *rid = &entry.second;
-    if (is_empty()) {
-      root_lock_.lock();
-      rc = create_new_tree(mtr, key, rid);
-      root_lock_.unlock();
-      continue;
-    }
-
-    rc = find_leaf(mtr, op, key, frame);
-    if (OB_FAIL(rc)) {
-      LOG_ERROR("failed to find leaf. rc=%s", strrc(rc));
-      return rc;
-    }
-
-    rc = insert_entry_into_leaf_node(mtr, frame, key, rid);
-    if (OB_FAIL(rc)) {
-      LOG_ERROR("failed to insert entry into leaf. rc=%s", strrc(rc));
-      return rc;
-    }
-  }
-
-  LOG_TRACE("flush cached insert entry success");
-
-  clear_cached_entries();
-
-  return rc;
-}
-
-RC BplusTreeHandler::clear_cached_entries()
-{
-  entries_need_insert_.clear();
-  entries_need_delete_.clear();
   return RC::SUCCESS;
 }

@@ -470,7 +470,9 @@ RC LogicalPlanGenerator::create_order_by_plan(SelectStmt *select_stmt, unique_pt
 RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<LogicalOperator> &logical_operator)
 {
   Table                      *table = update_stmt->table();
-  unique_ptr<LogicalOperator> table_get_operator(new TableGetLogicalOperator(table, ReadWriteMode::READ_WRITE));
+
+  unique_ptr<TableGetLogicalOperator> table_get_operator(new TableGetLogicalOperator(table, ReadWriteMode::READ_WRITE));
+  table_get_operator->set_not_use_index(true);  // update 不使用索引
 
   unique_ptr<LogicalOperator> predicate_operator;
   RC                          rc = create_plan(update_stmt->filter_stmt(), predicate_operator);

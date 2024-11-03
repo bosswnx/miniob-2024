@@ -35,12 +35,15 @@ public:
 
   void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
   auto predicates() -> std::vector<std::unique_ptr<Expression>> & { return predicates_; }
+  void set_not_use_index(bool not_use_index) { not_use_index_ = not_use_index; }
+  bool not_use_index() const { return not_use_index_; }
 
   bool is_or_conjunction = false;
 
 private:
   Table        *table_ = nullptr;
   ReadWriteMode mode_  = ReadWriteMode::READ_WRITE;
+  bool          not_use_index_ = false;
 
   // 与当前表相关的过滤操作，可以尝试在遍历数据时执行
   // 这里的表达式都是比较简单的比较运算，并且左右两边都是取字段表达式或值表达式

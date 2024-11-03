@@ -522,21 +522,8 @@ public:
    */
   RC delete_entry(const std::vector<const char *> &user_keys, const RID *rid);
 
-  /**
-   * @brief 缓存一个需要插入的索引项，缓存一个需要删除的索引项，用于更新索引操作
-   */
-  RC cache_insert_entry(const std::vector<const char *> &user_keys, const RID *rid);
-  RC cache_delete_entry(const std::vector<const char *> &user_keys, const RID *rid);
-
-  /**
-   * @brief 执行所有缓存的插入和删除操作
-   */
-  RC flush_cached_entries();
-
-  /**
-   * @brief 清空缓存的插入和删除操作
-   */
-  RC clear_cached_entries();
+  RC update_entry(
+      const std::vector<const char *> &old_user_key, const std::vector<const char *> &new_user_key, const RID *rid);
 
   bool is_empty() const;
 
@@ -694,9 +681,6 @@ protected:
 
   KeyComparator key_comparator_;
   KeyPrinter    key_printer_;
-
-  std::list<std::pair<common::MemPoolItem::item_unique_ptr, RID>> entries_need_insert_;
-  std::list<common::MemPoolItem::item_unique_ptr>                 entries_need_delete_;
 
   unique_ptr<common::MemPoolItem> mem_pool_item_;
 

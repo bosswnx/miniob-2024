@@ -80,28 +80,10 @@ public:
   RC insert_record(Record &record);
   RC delete_record(const Record &record);
 
-  /**
-   * @brief 缓存插入索引 和 缓存删除索引
-   * @details
-   * 缓存插入索引和缓存删除索引是用于在更新记录时，缓存需要更新的索引，affectedFields是受影响的字段，只有这些字段对应的索引需要更新
-   */
-  RC index_cache_insert_entry(const Record &record, const std::vector<FieldMeta> &affectedFields);
-  RC index_cache_delete_entry(const Record &record, const std::vector<FieldMeta> &affectedFields);
-
-  /**
-   * @brief 刷新缓存插入索引 和 刷新缓存删除索引
-   * @details 刷新缓存插入索引和刷新缓存删除索引是用于在提交事务时，刷新缓存中需要更新的索引
-   */
-  RC index_flush_cached_entries();
-
-  /**
-   * @brief 清空缓存插入索引 和 清空缓存删除索引
-   * @details 清空缓存插入索引和清空缓存删除索引是用于在提交事务时，清空缓存中需要更新的索引
-   */
-  RC clear_cached_entries();
-
   RC delete_record(const RID &rid);
   RC get_record(const RID &rid, Record &record);
+
+  RC update_index(const Record &old_record, const Record &new_record, const std::vector<FieldMeta> &affectedFields);
 
   RC recover_insert_record(Record &record);
 

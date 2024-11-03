@@ -410,7 +410,7 @@ RC RowRecordPageHandler::get_record(const RID &rid, Record &record)
   }
 
   record.set_rid(rid);
-  record.set_data(get_record_data(rid.slot_num), page_header_->record_real_size);
+  record.copy_data(get_record_data(rid.slot_num), page_header_->record_real_size);
   return RC::SUCCESS;
 }
 
@@ -692,15 +692,15 @@ RC RecordFileHandler::visit_record(const RID &rid, function<RC(Record &)> update
 
   // 需要将数据复制出来再修改，否则update_record调用失败但是实际上数据却更新成功了，
   // 会导致数据库状态不正确
-  Record inplace_record;
-  rc = page_handler->get_record(rid, inplace_record);
+  Record tmp_record;
+  rc = page_handler->get_record(rid, tmp_record);
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to get record from record page handle. rid=%s, rc=%s", rid.to_string().c_str(), strrc(rc));
     return rc;
   }
-  rc = updater(inplace_record);
+  rc = updater(tmp_record);
   if (rc == RC::SUCCESS) {
-    rc = page_handler->update_record(rid, inplace_record.data());
+    rc = page_handler->update_record(rid, tmp_record.data());
   }
   return rc;
 }

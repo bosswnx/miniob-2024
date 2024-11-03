@@ -284,21 +284,11 @@ class RowRecordPageHandler : public RecordPageHandler
 public:
   RowRecordPageHandler() : RecordPageHandler(StorageFormat::ROW_FORMAT) {}
 
-  virtual RC insert_record(const char *data, RID *rid) override;
-
-  virtual RC recover_insert_record(const char *data, const RID &rid) override;
-
-  virtual RC delete_record(const RID *rid) override;
-
-  virtual RC update_record(const RID &rid, const char *data) override;
-
-  /**
-   * @brief 获取指定位置的记录数据
-   *
-   * @param rid 指定的位置
-   * @param record 返回指定的数据。这里不会将数据复制出来，而是使用指针，所以调用者必须保证数据使用期间受到保护
-   */
-  virtual RC get_record(const RID &rid, Record &record) override;
+  RC insert_record(const char *data, RID *rid) override;
+  RC recover_insert_record(const char *data, const RID &rid) override;
+  RC delete_record(const RID *rid) override;
+  RC update_record(const RID &rid, const char *data) override;
+  RC get_record(const RID &rid, Record &record) override;
 };
 
 /**

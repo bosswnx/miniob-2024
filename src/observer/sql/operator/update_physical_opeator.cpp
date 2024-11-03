@@ -1,5 +1,6 @@
 #include "update_physical_opeator.h"
 
+// 注意，update 的时候不会使用索引
 RC UpdatePhysicalOperator::open(Trx *trx)
 {
   auto &child = children_[0];
@@ -13,7 +14,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     auto   tuple  = dynamic_cast<RowTuple *>(tuple_);
     ASSERT(tuple != nullptr, "tuple cannot cast to RowTuple here!");
     rc = table_->visit_record(tuple->record().rid(), [this, tuple](Record &record) {
-      table_->index_cache_delete_entry(record, field_metas_);
+      Record             old_record(record);
       std::vector<Value> cells_to_update; // 先存，防止有一个 field 更新异常导致部分写入。
       for (size_t i = 0; i < exprs_.size(); i++) {
         Value cell;
@@ -59,13 +60,14 @@ RC UpdatePhysicalOperator::open(Trx *trx)
         // tuple->set_cell_at(field_metas_[i].field_id(), cell, record.data());
         cells_to_update.push_back(cell);
       }
-      for (size_t i = 0; i<cells_to_update.size(); ++i) {
+      for (size_t i = 0; i < cells_to_update.size(); ++i)
         tuple->set_cell_at(field_metas_[i].field_id(), cells_to_update[i], record.data());
-      }
       cells_to_update.clear();
-
-      table_->index_cache_insert_entry(record, field_metas_);
-
+      RC rc = table_->update_index(old_record, record, field_metas_);
+      if (OB_FAIL(rc)) {
+        LOG_WARN("update index failed: %s", strrc(rc));
+        return rc;
+      }
       return RC::SUCCESS;
     });
     if (rc != RC::SUCCESS) {
@@ -75,7 +77,6 @@ RC UpdatePhysicalOperator::open(Trx *trx)
 
   // 下层算子可能使用索引获取记录，需要推迟索引的更新，避免利用索引遍历记录的同时更新索引
   child->close();
-  rc = table_->index_flush_cached_entries();
   if (OB_FAIL(rc)) {
     LOG_WARN("update index failed: %s", strrc(rc));
     return rc;
