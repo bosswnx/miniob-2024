@@ -26,6 +26,8 @@ See the Mulan PSL v2 for more details. */
 class IndexScanner;
 class IndexUserKey;
 
+const int KEY_NULL_BYTE = 4;
+
 /**
  * @brief 索引
  * @defgroup Index
@@ -84,6 +86,8 @@ public:
 protected:
   RC init(const IndexMeta &index_meta);
 
+  virtual RC make_user_keys(const char *record, std::vector<IndexUserKey> &user_keys) = 0;
+
 protected:
   IndexMeta index_meta_;  ///< 索引的元数据
 };
@@ -109,10 +113,11 @@ public:
 class IndexUserKey
 {
 public:
-  IndexUserKey(const Value &value) : data_(new char[value.data_length() + 1]), len_(value.data_length() + 1)
+  IndexUserKey(const Value &value)
+      : data_(new char[value.data_length() + KEY_NULL_BYTE]), len_(value.data_length() + KEY_NULL_BYTE)
   {
-    memset(data_, value.is_null(), 1);
-    memcpy(data_ + 1, value.data(), len_ - 1);
+    memset(data_, value.is_null(), KEY_NULL_BYTE);
+    memcpy(data_ + KEY_NULL_BYTE, value.data(), len_ - KEY_NULL_BYTE);
   }
   IndexUserKey(const char *data, size_t len) : data_(new char[len]), len_(len) { memcpy(data_, data, len); }
   IndexUserKey(const IndexUserKey &other) : data_(new char[other.len_]), len_(other.len_)

@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/value.h"
 #include "storage/record/record.h"
+#include "common/lang/bitmap.h"
 
 void Field::set_int(Record &record, int value)
 {

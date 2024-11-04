@@ -71,12 +71,12 @@ public:
   {
     // TODO: optimized the comparison
     Value left;
-    char  is_null = *v1;  // 每个字段的第一个字节是用来判断是否为 null 的标志位
+    bool  is_null = *v1;  // 每个字段的第一个字节是用来判断是否为 null 的标志位
     if (is_null) {
       left.set_null();
     } else {
       left.set_type(attr_type_);
-      left.set_data(v1 + 1, attr_length_);
+      left.set_data(v1 + KEY_NULL_BYTE, attr_length_ - KEY_NULL_BYTE);
     }
     Value right;
     is_null = *v2;
@@ -84,7 +84,7 @@ public:
       right.set_null();
     } else {
       right.set_type(attr_type_);
-      right.set_data(v2 + 1, attr_length_);
+      right.set_data(v2 + KEY_NULL_BYTE, attr_length_ - KEY_NULL_BYTE);
     }
     return left.compare_for_sort(right);
   }
@@ -224,8 +224,8 @@ struct IndexFileHeader
   int32_t  attr_num;           ///< 属性个数
   bool     is_unique;          ///< 是否唯一索引
   AttrType attr_types[MAX_KEY_NUM];
-  int32_t  attr_lengths[MAX_KEY_NUM];  /// 注意：这里的值是 sizeof(attr_type) + 1，多的这一个字节是放在数据前用来判断
-                                      /// null 的标志位
+  int32_t attr_lengths[MAX_KEY_NUM];  /// 注意：这里的值是 sizeof(attr_type) + KEY_NULL_BYTE，多的 KEY_NULL_BYTE
+                                      /// 个字节是放在数据前用来判断 null 的标志位
 
   const string to_string() const
   {

@@ -45,6 +45,9 @@ public:
 
   RC sync() override;
 
+protected:
+  RC make_user_keys(const char *record, std::vector<IndexUserKey> &user_keys) override;
+
 private:
   bool             inited_ = false;
   Table           *table_  = nullptr;

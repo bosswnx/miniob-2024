@@ -866,7 +866,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool
 
   int32_t key_length = 0;
   for (int attr_length : attr_lengths) {
-    key_length += attr_length + 1;  // 多出来的一个字节是用来判断 null 的标志位
+    key_length += attr_length + KEY_NULL_BYTE;  // 多出来的 KEY_NULL_BYTE 个字节是用来判断 null 的标志位
   }
   key_length += sizeof(RID);
 
@@ -880,7 +880,8 @@ RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool
   file_header->attr_num          = attr_types.size();
   for (size_t i = 0; i < attr_types.size(); i++) {
     file_header->attr_types[i]   = attr_types[i];
-    file_header->attr_lengths[i] = attr_lengths[i] + 1;  // 多出来的一个字节是用来判断 null 的标志位
+    file_header->attr_lengths[i] =
+        attr_lengths[i] + KEY_NULL_BYTE;  // 多出来的 KEY_NULL_BYTE 个字节是用来判断 null 的标志位
   }
 
   // 取消记录日志的原因请参考下面的sync调用的地方。
