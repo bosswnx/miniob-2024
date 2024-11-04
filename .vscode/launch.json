@@ -65,6 +65,22 @@
                     { "text": "handle SIGPIPE nostop noprint pass", "description": "ignore SIGPIPE", "ignoreFailures": true }  
                 ]
             },
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "LLDB(ann-benchmark)",
+            "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
+            "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-s", "miniob.sock", "-P", "mysql"],
+            "cwd": "${workspaceFolder}/${defaultBuildTask}/",
+            "internalConsoleOptions": "neverOpen",
+            "linux": {
+                "MIMode": "gdb",
+                "setupCommands": [
+                    { "text": "-enable-pretty-printing", "description": "enable pretty printing", "ignoreFailures": true },
+                    { "text": "handle SIGPIPE nostop noprint pass", "description": "ignore SIGPIPE", "ignoreFailures": true }  
+                ]
+            },
+
     ]
 }
