@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "type": "cppdbg",
             "request": "launch",
@@ -39,6 +40,22 @@
             "name": "LLDB",
             "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
             "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-P", "cli"],
+            "cwd": "${workspaceFolder}/${defaultBuildTask}/",
+            "internalConsoleOptions": "neverOpen",
+            "linux": {
+                "MIMode": "gdb",
+                "setupCommands": [
+                    { "text": "-enable-pretty-printing", "description": "enable pretty printing", "ignoreFailures": true },
+                    { "text": "handle SIGPIPE nostop noprint pass", "description": "ignore SIGPIPE", "ignoreFailures": true }  
+                ]
+            },
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "LLDB(MVCC)",
+            "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
+            "args": ["-f", "${workspaceFolder}/etc/observer.ini", "-s", "miniob.sock", "-t", "mvcc"],
             "cwd": "${workspaceFolder}/${defaultBuildTask}/",
             "internalConsoleOptions": "neverOpen",
             "linux": {

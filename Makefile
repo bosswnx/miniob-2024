@@ -21,4 +21,7 @@ format:
 gen_parser:
 	@cd src/observer/sql/parser && ./gen_parser.sh
 
-.PHONY: build env run help clean gen_parser format
+run_client: build
+	@cd build && ./bin/obclient -s miniob.sock
+
+.PHONY: build env run help clean gen_parser format run_client
