@@ -137,6 +137,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         AVG
         SUM
         TEXT_T
+        LIMIT
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -190,6 +191,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <condition_list>      where
 %type <condition_list>      condition_list
 %type <condition_list>      having
+%type <number>              limit
 %type <join_list>           join_list
 %type <string>              storage_format
 %type <relation_list>       rel_list
@@ -674,7 +676,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT expression_list FROM rel_list join_list where group_by having order_by
+    SELECT expression_list FROM rel_list join_list where group_by having order_by limit
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -731,6 +733,9 @@ select_stmt:        /*  select 语句的语法解析树*/
         std::reverse($$->selection.order_by.begin(), $$->selection.order_by.end());
         delete $9;
       }
+
+      // limit
+      $$->selection.limit = $10;
     }
     ;
 calc_stmt:
@@ -1104,6 +1109,17 @@ order_by_item:
       $$ = new OrderBySqlNode;
       $$->expression = std::unique_ptr<Expression>($1);
       $$->is_desc = true;
+    }
+    ;
+
+limit:
+    /* empty */
+    {
+      $$ = -1;
+    }
+    | LIMIT NUMBER
+    {
+      $$ = $2;
     }
     ;
 

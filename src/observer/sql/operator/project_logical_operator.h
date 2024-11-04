@@ -29,11 +29,16 @@ See the Mulan PSL v2 for more details. */
 class ProjectLogicalOperator : public LogicalOperator
 {
 public:
-  ProjectLogicalOperator(std::vector<std::unique_ptr<Expression>> &&expressions);
+  ProjectLogicalOperator(std::vector<std::unique_ptr<Expression>> &&expressions, int limit);
   virtual ~ProjectLogicalOperator() = default;
 
   LogicalOperatorType type() const override { return LogicalOperatorType::PROJECTION; }
 
   std::vector<std::unique_ptr<Expression>>       &expressions() { return expressions_; }
   const std::vector<std::unique_ptr<Expression>> &expressions() const { return expressions_; }
+
+  int limit() const { return limit_; }
+
+private:
+  int limit_ = -1;
 };

@@ -132,6 +132,7 @@ struct SelectSqlNode
   std::vector<std::unique_ptr<Expression>> group_by;     ///< group by clause
   std::vector<ConditionSqlNode>            havings;      ///< having clause
   std::vector<OrderBySqlNode>              order_by;     ///< order by clause
+  int                                      limit;        ///< limit clause，-1 表示不限制
 };
 
 /**
