@@ -91,7 +91,7 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
         field_offset,
         attr_info.arr_len * attr_type_size(attr_info.type),
         true /*visible*/,
-        i,
+        i + trx_field_num,
         attr_info.nullable,
         attr_info.dim);
     if (OB_FAIL(rc)) {
