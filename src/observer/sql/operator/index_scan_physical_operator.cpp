@@ -35,13 +35,13 @@ RC IndexScanPhysicalOperator::open(Trx *trx)
     return RC::INTERNAL;
   }
 
-  std::vector<const char *> left_keys;
-  std::vector<const char *> right_keys;
+  std::vector<IndexUserKey> left_keys;
+  std::vector<IndexUserKey> right_keys;
   for (const auto &value : left_values_) {
-    left_keys.push_back(value.data());
+    left_keys.push_back(IndexUserKey(value));
   }
   for (const auto &value : right_values_) {
-    right_keys.push_back(value.data());
+    right_keys.push_back(IndexUserKey(value));
   }
   IndexScanner *index_scanner = index_->create_scanner(left_keys, left_inclusive_, right_keys, right_inclusive_);
   if (nullptr == index_scanner) {

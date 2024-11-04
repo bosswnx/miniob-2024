@@ -1518,7 +1518,7 @@ RC BplusTreeHandler::create_new_tree(BplusTreeMiniTransaction &mtr, const char *
   return rc;
 }
 
-MemPoolItem::item_unique_ptr BplusTreeHandler::make_key(const std::vector<const char *> &user_keys, const RID *rid)
+MemPoolItem::item_unique_ptr BplusTreeHandler::make_key(const std::vector<IndexUserKey> &user_keys, const RID *rid)
 {
   MemPoolItem::item_unique_ptr key = mem_pool_item_->alloc_unique_ptr();
   if (key == nullptr) {
@@ -1528,14 +1528,14 @@ MemPoolItem::item_unique_ptr BplusTreeHandler::make_key(const std::vector<const 
 
   int idx = 0;
   for (size_t i = 0; i < user_keys.size(); i++) {
-    memcpy(static_cast<char *>(key.get()) + idx, user_keys[i], file_header_.attr_lengths[i]);
+    memcpy(static_cast<char *>(key.get()) + idx, user_keys[i].data(), file_header_.attr_lengths[i]);
     idx += file_header_.attr_lengths[i];
   }
   memcpy(static_cast<char *>(key.get()) + idx, rid, sizeof(RID));
   return key;
 }
 
-RC BplusTreeHandler::insert_entry(const std::vector<const char *> &user_keys, const RID *rid)
+RC BplusTreeHandler::insert_entry(const std::vector<IndexUserKey> &user_keys, const RID *rid)
 {
   if (user_keys.size() == 0 || rid == nullptr) {
     LOG_WARN("Invalid arguments, key is empty or rid is empty");
@@ -1579,7 +1579,7 @@ RC BplusTreeHandler::insert_entry(const std::vector<const char *> &user_keys, co
   return RC::SUCCESS;
 }
 
-RC BplusTreeHandler::get_entry(const std::vector<const char *> &user_keys, std::list<RID> &rids)
+RC BplusTreeHandler::get_entry(const std::vector<IndexUserKey> &user_keys, std::list<RID> &rids)
 {
   BplusTreeScanner scanner(*this);
   RC               rc = scanner.open(user_keys, true /*left_inclusive*/, user_keys, true /*right_inclusive*/);
@@ -1819,7 +1819,7 @@ RC BplusTreeHandler::delete_entry_internal(BplusTreeMiniTransaction &mtr, Frame 
   return coalesce_or_redistribute<LeafIndexNodeHandler>(mtr, leaf_frame);
 }
 
-RC BplusTreeHandler::delete_entry(const std::vector<const char *> &user_keys, const RID *rid)
+RC BplusTreeHandler::delete_entry(const std::vector<IndexUserKey> &user_keys, const RID *rid)
 {
 
   auto pkey = make_key(user_keys, rid);
@@ -1850,7 +1850,7 @@ RC BplusTreeHandler::delete_entry(const std::vector<const char *> &user_keys, co
 }
 
 RC BplusTreeHandler::update_entry(
-    const std::vector<const char *> &old_user_keys, const std::vector<const char *> &new_user_keys, const RID *rid)
+    const std::vector<IndexUserKey> &old_user_keys, const std::vector<IndexUserKey> &new_user_keys, const RID *rid)
 {
   RC rc = delete_entry(old_user_keys, rid);
   if (OB_FAIL(rc)) {
@@ -1877,8 +1877,8 @@ BplusTreeScanner::BplusTreeScanner(BplusTreeHandler &tree_handler)
 
 BplusTreeScanner::~BplusTreeScanner() { close(); }
 
-RC BplusTreeScanner::open(const std::vector<const char *> &left_user_keys, bool left_inclusive,
-    const std::vector<const char *> &right_user_keys, bool right_inclusive)
+RC BplusTreeScanner::open(const std::vector<IndexUserKey> &left_user_keys, bool left_inclusive,
+    const std::vector<IndexUserKey> &right_user_keys, bool right_inclusive)
 {
   RC rc = RC::SUCCESS;
   if (inited_) {
@@ -1908,7 +1908,7 @@ RC BplusTreeScanner::open(const std::vector<const char *> &left_user_keys, bool 
     const auto &comparators = tree_handler_.key_comparator_.attr_comparators();
     int         result      = 0;
     for (size_t i = 0; i < comparators.size(); i++) {
-      result = comparators[i](left_user_keys[i], right_user_keys[i]);
+      result = comparators[i](left_user_keys[i].data(), right_user_keys[i].data());
       if (result != 0) {
         break;
       }
@@ -1937,13 +1937,13 @@ RC BplusTreeScanner::open(const std::vector<const char *> &left_user_keys, bool 
   } else {
 
     auto                     &attr_lengths = tree_handler_.file_header_.attr_lengths;
-    std::vector<const char *> fixed_left_keys;
+    std::vector<IndexUserKey> fixed_left_keys;
     for (size_t i = 0; i < left_user_keys.size(); i++) {
-      const char *fixed_left_key = left_user_keys[i];
+      IndexUserKey fixed_left_key(left_user_keys[i]);
       if (tree_handler_.file_header_.attr_types[i] == AttrType::CHARS) {
         bool should_inclusive_after_fix = false;
         rc                              = fix_user_key(
-            left_user_keys[i], attr_lengths[i], true /*greater*/, &fixed_left_key, &should_inclusive_after_fix);
+            left_user_keys[i], attr_lengths[i], true /*greater*/, fixed_left_key, should_inclusive_after_fix);
         if (OB_FAIL(rc)) {
           LOG_WARN("failed to fix left user key. rc=%s", strrc(rc));
           return rc;
@@ -1963,13 +1963,6 @@ RC BplusTreeScanner::open(const std::vector<const char *> &left_user_keys, bool 
     }
 
     const char *left_key = (const char *)left_pkey.get();
-
-    for (size_t i = 0; i < fixed_left_keys.size(); i++) {
-      if (fixed_left_keys[i] != left_user_keys[i]) {
-        delete[] fixed_left_keys[i];
-        fixed_left_keys[i] = nullptr;
-      }
-    }
 
     rc = tree_handler_.find_leaf(mtr_, BplusTreeOperationType::READ, left_key, current_frame_);
     if (rc == RC::EMPTY) {
@@ -2011,13 +2004,13 @@ RC BplusTreeScanner::open(const std::vector<const char *> &left_user_keys, bool 
 
     auto &attr_lengths = tree_handler_.file_header_.attr_lengths;
 
-    std::vector<const char *> fixed_right_keys;
+    std::vector<IndexUserKey> fixed_right_keys;
     for (size_t i = 0; i < right_user_keys.size(); i++) {
-      const char *fixed_right_key = right_user_keys[i];
+      IndexUserKey fixed_right_key(right_user_keys[i]);
       if (tree_handler_.file_header_.attr_types[i] == AttrType::CHARS) {
         bool should_include_after_fix = false;
         rc                            = fix_user_key(
-            right_user_keys[i], attr_lengths[i], false /*want_greater*/, &fixed_right_key, &should_include_after_fix);
+            right_user_keys[i], attr_lengths[i], false /*want_greater*/, fixed_right_key, should_include_after_fix);
         if (OB_FAIL(rc)) {
           LOG_WARN("failed to fix right user key. rc=%s", strrc(rc));
           return rc;
@@ -2033,13 +2026,6 @@ RC BplusTreeScanner::open(const std::vector<const char *> &left_user_keys, bool 
       right_key_ = tree_handler_.make_key(fixed_right_keys, RID::max());
     } else {
       right_key_ = tree_handler_.make_key(fixed_right_keys, RID::min());
-    }
-
-    for (size_t i = 0; i < fixed_right_keys.size(); i++) {
-      if (fixed_right_keys[i] != right_user_keys[i]) {
-        delete[] fixed_right_keys[i];
-        fixed_right_keys[i] = nullptr;
-      }
     }
   }
 
@@ -2131,33 +2117,27 @@ RC BplusTreeScanner::close()
 }
 
 RC BplusTreeScanner::fix_user_key(
-    const char *user_key, int attr_length, bool want_greater, const char **fixed_key, bool *should_inclusive)
+    const IndexUserKey &user_key, int attr_length, bool want_greater, IndexUserKey &fixed_key, bool &should_inclusive)
 {
-  if (nullptr == fixed_key || nullptr == should_inclusive) {
-    return RC::INVALID_ARGUMENT;
-  }
-
-  *should_inclusive = false;
+  should_inclusive = false;
 
   char   *key_buf     = new char[attr_length];
   if (nullptr == key_buf) {
     return RC::NOMEM;
   }
 
-  int user_key_len = strlen(user_key);
+  // 如果 key 的长度小于等于 attr_length，那么全部复制，后面补0
+  if (user_key.len() <= static_cast<size_t>(attr_length)) {
+    memcpy(key_buf, user_key.data(), user_key.len());
+    memset(key_buf + user_key.len(), 0, attr_length - user_key.len());
 
-  if (user_key_len <= static_cast<size_t>(attr_length)) {
-    memcpy(key_buf, user_key, user_key_len);
-    memset(key_buf + user_key_len, 0, attr_length - user_key_len);
-
-    *fixed_key = key_buf;
+    fixed_key = IndexUserKey(key_buf, attr_length);
     return RC::SUCCESS;
   }
 
-  // key_len > attr_length
-  // 直接截断
-  memcpy(key_buf, user_key, attr_length);
-  *should_inclusive = true;
+  // 如果 key 的长度大于 attr_length，那么就截断
+  memcpy(key_buf, user_key.data(), attr_length);
+  should_inclusive = true;
 
   // 扫描 >=/> user_key 的数据
   // 示例：>=/> ABCD1 的数据，attr_length=4,
@@ -2169,6 +2149,6 @@ RC BplusTreeScanner::fix_user_key(
     key_buf[attr_length - 1]++;
   }
 
-  *fixed_key = key_buf;
+  fixed_key = IndexUserKey(key_buf, attr_length);
   return RC::SUCCESS;
 }

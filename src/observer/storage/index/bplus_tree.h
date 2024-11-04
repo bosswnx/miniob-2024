@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 #include "storage/index/latch_memo.h"
 #include "storage/index/bplus_tree_log.h"
+#include "storage/index/index.h"
 
 class BplusTreeHandler;
 class BplusTreeMiniTransaction;
@@ -531,16 +532,16 @@ public:
    * 即向索引中插入一个值为（user_key，rid）的键值对
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC insert_entry(const std::vector<const char *> &user_keys, const RID *rid);
+  RC insert_entry(const std::vector<IndexUserKey> &user_keys, const RID *rid);
   /**
    * @brief 从IndexHandle句柄对应的索引中删除一个值为（user_key，rid）的索引项
    * @return RECORD_INVALID_KEY 指定值不存在
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC delete_entry(const std::vector<const char *> &user_keys, const RID *rid);
+  RC delete_entry(const std::vector<IndexUserKey> &user_keys, const RID *rid);
 
   RC update_entry(
-      const std::vector<const char *> &old_user_key, const std::vector<const char *> &new_user_key, const RID *rid);
+      const std::vector<IndexUserKey> &old_user_keys, const std::vector<IndexUserKey> &new_user_keys, const RID *rid);
 
   bool is_empty() const;
 
@@ -549,7 +550,7 @@ public:
    * @param user_keys 用户键值
    * @param rid  返回值，记录记录所在的页面号和slot
    */
-  RC get_entry(const std::vector<const char *> &user_keys, std::list<RID> &rids);
+  RC get_entry(const std::vector<IndexUserKey> &user_keys, std::list<RID> &rids);
   RC sync();
 
   /**
@@ -684,7 +685,7 @@ private:
   /**
    * @brief 从用户键值和RID创建一个B+树的
    */
-  common::MemPoolItem::item_unique_ptr make_key(const std::vector<const char *> &user_keys, const RID *rid);
+  common::MemPoolItem::item_unique_ptr make_key(const std::vector<IndexUserKey> &user_keys, const RID *rid);
 
 protected:
   LogHandler     *log_handler_      = nullptr;  /// 日志处理器
@@ -718,16 +719,14 @@ public:
 
   /**
    * @brief 扫描指定范围的数据
-   * @param left_user_key 扫描范围的左边界，如果是null，则没有左边界
-   * @param left_len left_user_key 的内存大小(只有在变长字段中才会关注)
+   * @param left_user_keys 扫描范围的左边界，如果是null，则没有左边界
    * @param left_inclusive 左边界的值是否包含在内
-   * @param right_user_key 扫描范围的右边界。如果是null，则没有右边界
-   * @param right_len right_user_key 的内存大小(只有在变长字段中才会关注)
+   * @param right_user_keys 扫描范围的右边界。如果是null，则没有右边界
    * @param right_inclusive 右边界的值是否包含在内
    * TODO 重构参数表示方法
    */
-  RC open(const std::vector<const char *> &left_user_keys, bool left_inclusive,
-      const std::vector<const char *> &right_user_keys, bool right_inclusive);
+  RC open(const std::vector<IndexUserKey> &left_user_keys, bool left_inclusive,
+      const std::vector<IndexUserKey> &right_user_keys, bool right_inclusive);
 
   /**
    * @brief 获取下一条记录
@@ -750,8 +749,8 @@ private:
   /**
    * 如果key的类型是CHARS, 扩展或缩减user_key的大小刚好是schema中定义的大小
    */
-  RC fix_user_key(
-      const char *user_key, int attr_length, bool want_greater, const char **fixed_key, bool *should_inclusive);
+  RC fix_user_key(const IndexUserKey &user_key, int attr_length, bool want_greater, IndexUserKey &fixed_key,
+      bool &should_inclusive);
 
   void fetch_item(RID &rid);
 

@@ -262,7 +262,7 @@ public:
     } else if (attr_type_ == AttrType::VECTORS) {
       return static_cast<int>(VectorData::field_size);  // 只复制前两项成员
     } else {
-      return length_;     // null 返回 0
+      return length_;  // null 返回 4
     }
   }
 
