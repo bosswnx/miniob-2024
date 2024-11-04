@@ -48,25 +48,27 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
   }
 
   // 检查每列的类型和nullable 是否匹配(在执行阶段还有检查）
+  // 注意：sys_field 是为了 mvcc 等设计的系统隐藏字段，不检查
   for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
-    if (!values[i].is_null() && values[i].attr_type() != table_meta.field(i)->type()) {
+    int value_idx = i - table_meta.sys_field_num();
+    if (!values[value_idx].is_null() && values[value_idx].attr_type() != table_meta.field(i)->type()) {
       // 类型不匹配时尝试转型，chars 可以转成 text
       Value to_value;
-      RC    rc = Value::cast_to(values[i], table_meta.field(i)->type(), to_value);
+      RC    rc = Value::cast_to(values[value_idx], table_meta.field(i)->type(), to_value);
       if (OB_FAIL(rc)) {
-        LOG_WARN("value doesn't match: %s != %s", attr_type_to_string(values[i].attr_type()), attr_type_to_string(table_meta.field(i)->type()));
+        LOG_WARN("value doesn't match: %s != %s", attr_type_to_string(values[value_idx].attr_type()), attr_type_to_string(table_meta.field(i)->type()));
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      values[i] = to_value;
+      values[value_idx] = to_value;
     }
-    if (values[i].is_null() && !table_meta.field(i)->nullable()) {
+    if (values[value_idx].is_null() && !table_meta.field(i)->nullable()) {
       LOG_WARN("value of column %s cannot be null", table_meta.field(i)->name());
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
     // 检查 VECTOR 的维度是否完全一致
     if (table_meta.field(i)->type() == AttrType::VECTORS &&
-        static_cast<size_t>(values[i].length()) != table_meta.field(i)->vector_dim() * sizeof(float)) {
-      LOG_WARN("vector length exceeds limit: %d != %d", values[i].length()/4, table_meta.field(i)->vector_dim());
+        static_cast<size_t>(values[value_idx].length()) != table_meta.field(i)->vector_dim() * sizeof(float)) {
+      LOG_WARN("vector length exceeds limit: %d != %d", values[value_idx].length()/4, table_meta.field(i)->vector_dim());
       return RC::INVALID_ARGUMENT;
     }
   }
