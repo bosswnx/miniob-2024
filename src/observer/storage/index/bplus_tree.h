@@ -76,7 +76,7 @@ public:
       left.set_null();
     } else {
       left.set_type(attr_type_);
-      left.set_data(v1 + KEY_NULL_BYTE, attr_length_ - KEY_NULL_BYTE);
+      left.set_data(v1 + KEY_NULL_BYTE, attr_length_);
     }
     Value right;
     is_null = *v2;
@@ -84,7 +84,7 @@ public:
       right.set_null();
     } else {
       right.set_type(attr_type_);
-      right.set_data(v2 + KEY_NULL_BYTE, attr_length_ - KEY_NULL_BYTE);
+      right.set_data(v2 + KEY_NULL_BYTE, attr_length_);
     }
     return left.compare_for_sort(right);
   }
@@ -121,8 +121,8 @@ public:
       if (result != 0) {
         return result;
       }
-      v1 += attr_comparator.attr_length();
-      v2 += attr_comparator.attr_length();
+      v1 += attr_comparator.attr_length() + KEY_NULL_BYTE;
+      v2 += attr_comparator.attr_length() + KEY_NULL_BYTE;
     }
 
     if (not_compare_rid_) {
