@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/index.h"
 #include "storage/record/record_manager.h"
 #include "storage/table/table.h"
+#include "storage/table/vector_data_manager.h"
 #include "storage/trx/trx.h"
 #include "sql/expr/tuple.h"
 
@@ -108,28 +109,40 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   table_meta_.serialize(fs);
   fs.close();
 
-  bool has_text_or_vector = false;
-  for (const auto &attr : attributes) {
-    if (attr.type == AttrType::TEXTS || attr.type == AttrType::VECTORS) {
-      has_text_or_vector = true;
-      break;
-    }
-  }
-  if (has_text_or_vector) {
-    std::string text_file = table_text_vector_data_file(base_dir, name);
+  db_       = db;
+  base_dir_ = base_dir;
+
+  bool has_text = std::any_of(
+      attributes.begin(), attributes.end(), [](AttrInfoSqlNode attr) { return attr.type == AttrType::TEXTS; });
+  if (has_text) {
+    std::string text_file = table_text_data_file(base_dir, name);
     fd                    = ::open(text_file.c_str(), O_CREAT | O_EXCL | O_CLOEXEC, 0600);
     if (fd < 0) {
       if (EEXIST == errno) {
-        LOG_ERROR("Failed to create text data file, it has been created. %s, EEXIST, %s", path, strerror(errno));
+        LOG_ERROR("Failed to create text data file, it has been created. %s, EEXIST, %s", text_file.c_str(), strerror(errno));
         return RC::SCHEMA_TABLE_EXIST;
       }
-      LOG_ERROR("Create text data file failed. filename=%s, errmsg=%d:%s", path, errno, strerror(errno));
+      LOG_ERROR("Create text data file failed. filename=%s, errmsg=%d:%s", text_file.c_str(), errno, strerror(errno));
       return RC::IOERR_OPEN;
     }
+    close(fd);
   }
-
-  db_       = db;
-  base_dir_ = base_dir;
+  bool has_vector = std::any_of(
+      attributes.begin(), attributes.end(), [](AttrInfoSqlNode attr) { return attr.type == AttrType::VECTORS; });
+  if (has_vector) {
+    std::string vector_file = table_vector_data_file(base_dir, name);
+    fd                      = ::open(vector_file.c_str(), O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+    if (fd < 0) {
+      if (EEXIST == errno) {
+        LOG_ERROR("Failed to create vector data file, it has been created. %s, EEXIST, %s", vector_file.c_str(), strerror(errno));
+        return RC::SCHEMA_TABLE_EXIST;
+      }
+      LOG_ERROR("Create vector data file failed. filename=%s, errmsg=%d:%s", vector_file.c_str(), errno, strerror(errno));
+      return RC::IOERR_OPEN;
+    }
+    close(fd);
+    vector_data_manager_ = VectorDataManager::create(this);
+  }
 
   string             data_file = table_data_file(base_dir, name);
   BufferPoolManager &bpm       = db->buffer_pool_manager();
@@ -154,7 +167,8 @@ RC Table::drop(Db *db, const char *table_name, const char *base_dir)
 {
   std::string data_file_path = table_data_file(base_dir, table_name);
   std::string meta_file_path = table_meta_file(base_dir, table_name);
-  std::string text_file_path = table_text_vector_data_file(base_dir_.c_str(), table_meta_.name());
+  std::string text_file_path   = table_text_data_file(base_dir_.c_str(), table_meta_.name());
+  std::string vector_file_path = table_vector_data_file(base_dir_.c_str(), table_meta_.name());
   // TODO: delete index
   data_buffer_pool_->close_file();
   data_buffer_pool_ = nullptr;  // 防止析构函数中再次尝试关闭文件
@@ -169,6 +183,12 @@ RC Table::drop(Db *db, const char *table_name, const char *base_dir)
   if (unlink(text_file_path.c_str()) == -1) {
     if (errno != ENOENT) {
       LOG_ERROR("Failed to remove text data file for %s due to %s", meta_file_path.c_str(), strerror(errno));
+      return RC::INTERNAL;
+    }
+  }
+  if (unlink(vector_file_path.c_str()) == -1) {
+    if (errno != ENOENT) {
+      LOG_ERROR("Failed to remove vector data file for %s due to %s", meta_file_path.c_str(), strerror(errno));
       return RC::INTERNAL;
     }
   }
@@ -222,6 +242,13 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
     indexes_.push_back(index);
   }
 
+  auto field_metas = table_meta_.field_metas();
+  bool has_vector  = std::any_of(
+      field_metas->begin(), field_metas->end(), [](FieldMeta attr) { return attr.type() == AttrType::VECTORS; });
+  if (has_vector) {
+
+    vector_data_manager_ = VectorDataManager::create(this);
+  }
   return rc;
 }
 
@@ -344,12 +371,12 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
   if (field->type() == AttrType::TEXTS) {
     const auto text_data         = reinterpret_cast<const TextData *>(value.data());
     TextData   text_data_updated = *text_data;
-    TextUtils::dump_text(this, &text_data_updated);  // 不能原地修改value 中的TextData.offset
+    this->dump_text(&text_data_updated);  // 不能原地修改value 中的TextData.offset
     memcpy(record_data + field->offset(), &text_data_updated, copy_len);
   } else if (field->type() == AttrType::VECTORS) {
     const auto vector_data         = reinterpret_cast<const VectorData *>(value.data());
     VectorData vector_data_updated = *vector_data;
-    VectorUtils::dump_vector(this, &vector_data_updated);
+    this->dump_vector(&vector_data_updated);
     memcpy(record_data + field->offset(), &vector_data_updated, copy_len);
   } else {
     memcpy(record_data + field->offset(), value.data(), copy_len);
@@ -608,10 +635,9 @@ RC Table::sync()
   return rc;
 }
 
-std::string Table::text_vector_data_file() const
-{
-  return table_text_vector_data_file(base_dir_.c_str(), table_meta_.name());
-}
+std::string Table::text_data_file() const { return table_text_data_file(base_dir_.c_str(), table_meta_.name()); }
+
+std::string Table::vector_data_file() const { return table_vector_data_file(base_dir_.c_str(), table_meta_.name()); }
 
 RC Table::update_index(const Record &old_record, const Record &new_record, const std::vector<FieldMeta> &affectedFields)
 {
@@ -634,4 +660,67 @@ RC Table::update_index(const Record &old_record, const Record &new_record, const
     }
   }
   return RC::SUCCESS;
+}
+
+RC Table::load_text(TextData *data) const
+{
+  std::string text_file = text_data_file();
+  int         fd        = ::open(text_file.c_str(), O_RDONLY);
+  if (fd < 0) {
+    LOG_WARN("failed to open table text data file %s: %s", text_file.c_str(), strerror(errno));
+    return RC::IOERR_OPEN;
+  }
+  lseek(fd, data->offset, SEEK_SET);
+  size_t offset = 0;
+  auto   buffer = new char[data->len + 1];
+  while (offset < data->len) {
+    size_t readed = read(fd, buffer + offset, data->len - offset);
+    if (readed < 0) {
+      LOG_WARN("failed to read text data: %s", strerror(errno));
+    }
+    offset += readed;
+  }
+  close(fd);
+  buffer[data->len] = '\0';
+  data->str         = buffer;
+  return RC::SUCCESS;
+}
+RC Table::dump_text(TextData *data) const
+{
+  // 在文件末尾追加写入 text
+  std::string text_file = text_data_file();
+  int         fd        = ::open(text_file.c_str(), O_RDWR);
+  if (fd < 0) {
+    LOG_WARN("failed to open table text data file %s: %s", text_file.c_str(), strerror(errno));
+    return RC::IOERR_OPEN;
+  }
+  size_t end    = lseek(fd, 0, SEEK_END);
+  size_t offset = 0;
+  while (offset < data->len) {
+    size_t writed = write(fd, data->str + offset, data->len - offset);
+    if (writed < 0) {
+      LOG_WARN("failed to write text data %s", strerror(errno));
+      return RC::IOERR_WRITE;
+    }
+    offset += writed;
+  }
+  close(fd);
+  data->offset = end;
+  return RC::SUCCESS;
+}
+
+RC Table::load_vector(VectorData *data) const
+{
+  ASSERT(vector_data_manager_ != nullptr, "table %s has no vector attribute", this->name());
+  return vector_data_manager_->load_vector(data);
+}
+RC Table::dump_vector(VectorData *data) const
+{
+  ASSERT(vector_data_manager_ != nullptr, "table %s has no vector attribute", this->name());
+  return vector_data_manager_->dump_vector(data);
+}
+RC Table::update_vector(const VectorData *old_vector_data, const VectorData *new_vector_data) const
+{
+  ASSERT(vector_data_manager_ != nullptr, "table %s has no vector attribute", this->name());
+  return vector_data_manager_->update_vector(old_vector_data, new_vector_data);
 }
