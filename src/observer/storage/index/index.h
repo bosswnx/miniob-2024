@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <stddef.h>
 #include <vector>
+#include <cstring>
 
 #include "common/rc.h"
 #include "storage/field/field_meta.h"
@@ -23,6 +24,9 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 
 class IndexScanner;
+class IndexUserKey;
+
+const int KEY_NULL_BYTE = 4;
 
 /**
  * @brief 索引
@@ -70,8 +74,8 @@ public:
    * @param right_keys 要扫描的右边界
    * @param right_inclusive 是否包含右边界
    */
-  virtual IndexScanner *create_scanner(const std::vector<const char *> &left_keys, bool left_inclusive,
-      const std::vector<const char *> &right_keys, bool right_inclusive) = 0;
+  virtual IndexScanner *create_scanner(const std::vector<IndexUserKey> &left_keys, bool left_inclusive,
+      const std::vector<IndexUserKey> &right_keys, bool right_inclusive) = 0;
 
   /**
    * @brief 同步索引数据到磁盘
@@ -81,6 +85,8 @@ public:
 
 protected:
   RC init(const IndexMeta &index_meta);
+
+  virtual RC make_user_keys(const char *record, std::vector<IndexUserKey> &user_keys) = 0;
 
 protected:
   IndexMeta index_meta_;  ///< 索引的元数据
@@ -102,4 +108,28 @@ public:
    */
   virtual RC next_entry(RID *rid) = 0;
   virtual RC destroy()            = 0;
+};
+
+class IndexUserKey
+{
+public:
+  IndexUserKey(const Value &value)
+      : data_(new char[value.data_length() + KEY_NULL_BYTE]), len_(value.data_length() + KEY_NULL_BYTE)
+  {
+    memset(data_, value.is_null(), KEY_NULL_BYTE);
+    memcpy(data_ + KEY_NULL_BYTE, value.data(), len_ - KEY_NULL_BYTE);
+  }
+  IndexUserKey(const char *data, size_t len) : data_(new char[len]), len_(len) { memcpy(data_, data, len); }
+  IndexUserKey(const IndexUserKey &other) : data_(new char[other.len_]), len_(other.len_)
+  {
+    memcpy(data_, other.data_, len_);
+  }
+  ~IndexUserKey() { delete[] data_; }
+
+  const char *data() const { return data_; }
+  size_t      len() const { return len_; }
+
+private:
+  char  *data_ = nullptr;
+  size_t len_  = 0;
 };

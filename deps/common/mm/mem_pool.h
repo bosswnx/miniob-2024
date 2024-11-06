@@ -188,8 +188,8 @@ int MemPoolSimple<T>::init(bool dynamic, int pool_num, int item_num_per_pool)
   }
   this->dynamic = dynamic;
 
-  LOG_INFO("Extend one pool, this->size:%d, item_num_per_pool:%d, this->name:%s.",
-           this->size, item_num_per_pool, this->name.c_str());
+  // LOG_INFO("Extend one pool, this->size:%d, item_num_per_pool:%d, this->name:%s.",
+  //          this->size, item_num_per_pool, this->name.c_str());
   return 0;
 }
 
@@ -241,8 +241,8 @@ int MemPoolSimple<T>::extend()
   }
   MUTEX_UNLOCK(&this->mutex);
 
-  LOG_INFO("Extend one pool, this->size:%d, item_num_per_pool:%d, this->name:%s.",
-           this->size, item_num_per_pool, this->name.c_str());
+  // LOG_INFO("Extend one pool, this->size:%d, item_num_per_pool:%d, this->name:%s.",
+  //          this->size, item_num_per_pool, this->name.c_str());
   return 0;
 }
 

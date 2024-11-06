@@ -40,10 +40,13 @@ public:
   /**
    * 扫描指定范围的数据
    */
-  IndexScanner *create_scanner(const std::vector<const char *> &left_keys, bool left_inclusive,
-      const std::vector<const char *> &right_keys, bool right_inclusive) override;
+  IndexScanner *create_scanner(const std::vector<IndexUserKey> &left_keys, bool left_inclusive,
+      const std::vector<IndexUserKey> &right_keys, bool right_inclusive) override;
 
   RC sync() override;
+
+protected:
+  RC make_user_keys(const char *record, std::vector<IndexUserKey> &user_keys) override;
 
 private:
   bool             inited_ = false;
@@ -64,7 +67,7 @@ public:
   RC next_entry(RID *rid) override;
   RC destroy() override;
 
-  RC open(const std::vector<const char *> &left_keys, bool left_inclusive, const std::vector<const char *> &right_keys,
+  RC open(const std::vector<IndexUserKey> &left_keys, bool left_inclusive, const std::vector<IndexUserKey> &right_keys,
       bool right_inclusive);
 
 private:

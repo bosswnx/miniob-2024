@@ -66,6 +66,7 @@ public:
   FilterStmt                              *filter_stmt_having_ = nullptr;
   std::vector<std::unique_ptr<Expression>> order_by_exprs_;
   std::vector<bool>                        order_by_descs_;
+  int                                      limit_ = -1;  // -1 表示不限制
 
   std::vector<FieldMeta> get_query_fields() {
     // 此方法用于 Create-Table-Select

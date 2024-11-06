@@ -40,7 +40,7 @@ int bytes(int size) { return size % 8 == 0 ? size / 8 : size / 8 + 1; }
 
 Bitmap::Bitmap() : bitmap_(nullptr), size_(0) {}
 Bitmap::Bitmap(char *bitmap, int size) : bitmap_(bitmap), size_(size) {}
-
+Bitmap::Bitmap(const char *bitmap, int size) : bitmap_(const_cast<char *>(bitmap)), size_(size) {}
 void Bitmap::init(char *bitmap, int size)
 {
   bitmap_ = bitmap;

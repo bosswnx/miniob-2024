@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/index/bplus_tree_index.h"
 #include "common/log/log.h"
+#include "common/lang/bitmap.h"
+#include "storage/index/index.h"
 #include "storage/table/table.h"
 #include "storage/db/db.h"
 #include <vector>
@@ -90,41 +92,29 @@ RC BplusTreeIndex::close()
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
-  std::vector<const char *> user_keys;
-  for (const auto &field_meta : field_metas()) {
-    auto user_key = record + field_meta.offset();
-    user_keys.push_back(user_key);
-  }
+  std::vector<IndexUserKey> user_keys;
+  make_user_keys(record, user_keys);
   return index_handler_.insert_entry(user_keys, rid);
 }
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
 {
-  std::vector<const char *> user_keys;
-  for (const auto &field_meta : field_metas()) {
-    auto user_key = record + field_meta.offset();
-    user_keys.push_back(user_key);
-  }
+  std::vector<IndexUserKey> user_keys;
+  make_user_keys(record, user_keys);
   return index_handler_.delete_entry(user_keys, rid);
 }
 
 RC BplusTreeIndex::update_entry(const char *old_record, const char *new_record, const RID *rid)
 {
-  std::vector<const char *> old_user_keys;
-  for (const auto &field_meta : field_metas()) {
-    auto user_key = old_record + field_meta.offset();
-    old_user_keys.push_back(user_key);
-  }
-  std::vector<const char *> new_user_keys;
-  for (const auto &field_meta : field_metas()) {
-    auto user_key = new_record + field_meta.offset();
-    new_user_keys.push_back(user_key);
-  }
+  std::vector<IndexUserKey> old_user_keys;
+  make_user_keys(old_record, old_user_keys);
+  std::vector<IndexUserKey> new_user_keys;
+  make_user_keys(new_record, new_user_keys);
   return index_handler_.update_entry(old_user_keys, new_user_keys, rid);
 }
 
-IndexScanner *BplusTreeIndex::create_scanner(const std::vector<const char *> &left_keys, bool left_inclusive,
-    const std::vector<const char *> &right_keys, bool right_inclusive)
+IndexScanner *BplusTreeIndex::create_scanner(const std::vector<IndexUserKey> &left_keys, bool left_inclusive,
+    const std::vector<IndexUserKey> &right_keys, bool right_inclusive)
 {
   BplusTreeIndexScanner *index_scanner = new BplusTreeIndexScanner(index_handler_);
   RC                     rc            = index_scanner->open(left_keys, left_inclusive, right_keys, right_inclusive);
@@ -138,13 +128,32 @@ IndexScanner *BplusTreeIndex::create_scanner(const std::vector<const char *> &le
 
 RC BplusTreeIndex::sync() { return index_handler_.sync(); }
 
+RC BplusTreeIndex::make_user_keys(const char *record, std::vector<IndexUserKey> &user_keys)
+{
+  user_keys.clear();
+  auto null_bitmap =
+      common::Bitmap(record + table_->table_meta().null_bitmap_start(), table_->table_meta().field_num());
+  for (const auto &field_meta : field_metas()) {
+    int  key_len = field_meta.len() + KEY_NULL_BYTE;
+    char user_key_tmp[key_len];
+    if (null_bitmap.get_bit(field_meta.field_id() - table_->table_meta().sys_field_num())) {
+      memset(user_key_tmp, 1, key_len);
+    } else {
+      memset(user_key_tmp, 0, KEY_NULL_BYTE);
+      memcpy(user_key_tmp + KEY_NULL_BYTE, record + field_meta.offset(), field_meta.len());
+    }
+    user_keys.push_back(IndexUserKey(user_key_tmp, key_len));
+  }
+  return RC::SUCCESS;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 BplusTreeIndexScanner::BplusTreeIndexScanner(BplusTreeHandler &tree_handler) : tree_scanner_(tree_handler) {}
 
 BplusTreeIndexScanner::~BplusTreeIndexScanner() noexcept { tree_scanner_.close(); }
 
-RC BplusTreeIndexScanner::open(const std::vector<const char *> &left_keys, bool left_inclusive,
-    const std::vector<const char *> &right_keys, bool right_inclusive)
+RC BplusTreeIndexScanner::open(const std::vector<IndexUserKey> &left_keys, bool left_inclusive,
+    const std::vector<IndexUserKey> &right_keys, bool right_inclusive)
 {
   return tree_scanner_.open(left_keys, left_inclusive, right_keys, right_inclusive);
 }

@@ -393,6 +393,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   select_stmt->filter_stmt_having_ = filter_stmt_having;
   select_stmt->order_by_exprs_.swap(order_by_exprs);
   select_stmt->order_by_descs_.swap(order_by_descs);
+  select_stmt->limit_ = select_sql.limit;
   stmt = select_stmt;
   return RC::SUCCESS;
 }

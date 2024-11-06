@@ -224,14 +224,14 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
     index_scan_oper->set_predicates(std::move(predicates));
     index_scan_oper->is_or_conjunction = table_get_oper.is_or_conjunction;
     oper                               = unique_ptr<PhysicalOperator>(index_scan_oper);
-    LOG_TRACE("use index scan");
+    LOG_INFO("use index scan");
     return RC::SUCCESS;
   }
   auto table_scan_oper = new TableScanPhysicalOperator(table, table_get_oper.read_write_mode());
   table_scan_oper->set_predicates(std::move(predicates));
   table_scan_oper->is_or_conjunction = table_get_oper.is_or_conjunction;
   oper                               = unique_ptr<PhysicalOperator>(table_scan_oper);
-  LOG_TRACE("use table scan");
+  LOG_INFO("use table scan");
 
   return RC::SUCCESS;
 }
@@ -322,7 +322,8 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
     }
   }
 
-  auto project_operator = make_unique<ProjectPhysicalOperator>(std::move(project_oper.expressions()));
+  auto project_operator =
+      make_unique<ProjectPhysicalOperator>(std::move(project_oper.expressions()), project_oper.limit());
   if (child_phy_oper) {
     project_operator->add_child(std::move(child_phy_oper));
   }

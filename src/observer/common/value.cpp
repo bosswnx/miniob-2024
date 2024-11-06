@@ -393,6 +393,7 @@ void Value::set_null()
 {
   reset();
   attr_type_ = AttrType::NULLS;
+  length_    = 4;
 }
 
 const char *Value::data() const
@@ -432,16 +433,18 @@ int Value::compare(const Value &other) const
   if (is_null() || other.is_null()) {
     return INT32_MAX;  // 空值参与比较，返回 false
   }
+  return DataType::type_instance(this->attr_type_)->compare(*this, other);
+}
+
+// 专门为了排序设计的比较函数，null 排在最前面，且 null 之间不会相等
+int Value::compare_for_sort(const Value &other) const
+{
   if (is_null()) {
-    if (other.is_null()) { 
-      return 0;
-    } else {
-      return -1;
-    }
+    return -1;
   } else if (other.is_null()) {
     return 1;
   }
-  return DataType::type_instance(this->attr_type_)->compare(*this, other);
+  return compare(other);
 }
 
 int Value::get_int() const

@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 #include "storage/index/latch_memo.h"
 #include "storage/index/bplus_tree_log.h"
+#include "storage/index/index.h"
 
 class BplusTreeHandler;
 class BplusTreeMiniTransaction;
@@ -70,12 +71,22 @@ public:
   {
     // TODO: optimized the comparison
     Value left;
-    left.set_type(attr_type_);
-    left.set_data(v1, attr_length_);
+    bool  is_null = *v1;  // 每个字段的第一个字节是用来判断是否为 null 的标志位
+    if (is_null) {
+      left.set_null();
+    } else {
+      left.set_type(attr_type_);
+      left.set_data(v1 + KEY_NULL_BYTE, attr_length_);
+    }
     Value right;
-    right.set_type(attr_type_);
-    right.set_data(v2, attr_length_);
-    return DataType::type_instance(attr_type_)->compare(left, right);
+    is_null = *v2;
+    if (is_null) {
+      right.set_null();
+    } else {
+      right.set_type(attr_type_);
+      right.set_data(v2 + KEY_NULL_BYTE, attr_length_);
+    }
+    return left.compare_for_sort(right);
   }
 
 private:
@@ -110,17 +121,23 @@ public:
       if (result != 0) {
         return result;
       }
-      v1 += attr_comparator.attr_length();
-      v2 += attr_comparator.attr_length();
+      v1 += attr_comparator.attr_length() + KEY_NULL_BYTE;
+      v2 += attr_comparator.attr_length() + KEY_NULL_BYTE;
     }
 
+    if (not_compare_rid_) {
+      return 0;
+    }
     const RID *rid1 = (const RID *)(v1);
     const RID *rid2 = (const RID *)(v2);
     return RID::compare(rid1, rid2);
   }
 
+  void set_not_compare_rid(bool not_compare_rid) { not_compare_rid_ = not_compare_rid; }
+
 private:
   std::vector<AttrComparator> attr_comparators_;  // 多字段索引，每个字段一个比较器
+  bool                        not_compare_rid_ = false;
 };
 
 /**
@@ -203,11 +220,12 @@ struct IndexFileHeader
   PageNum  root_page;          ///< 根节点在磁盘中的页号
   int32_t  internal_max_size;  ///< 内部节点最大的键值对数
   int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
-  int32_t  key_length;         ///< 键值长度 attr_length + sizeof(RID)
+  int32_t  key_length;         ///< 键值长度 sum(attr_lengths) + sizeof(RID)
   int32_t  attr_num;           ///< 属性个数
   bool     is_unique;          ///< 是否唯一索引
   AttrType attr_types[MAX_KEY_NUM];
-  int32_t  attr_lengths[MAX_KEY_NUM];
+  int32_t attr_lengths[MAX_KEY_NUM];  /// 注意：这里的值是 sizeof(attr_type) + KEY_NULL_BYTE，多的 KEY_NULL_BYTE
+                                      /// 个字节是放在数据前用来判断 null 的标志位
 
   const string to_string() const
   {
@@ -514,16 +532,16 @@ public:
    * 即向索引中插入一个值为（user_key，rid）的键值对
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC insert_entry(const std::vector<const char *> &user_keys, const RID *rid);
+  RC insert_entry(const std::vector<IndexUserKey> &user_keys, const RID *rid);
   /**
    * @brief 从IndexHandle句柄对应的索引中删除一个值为（user_key，rid）的索引项
    * @return RECORD_INVALID_KEY 指定值不存在
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC delete_entry(const std::vector<const char *> &user_keys, const RID *rid);
+  RC delete_entry(const std::vector<IndexUserKey> &user_keys, const RID *rid);
 
   RC update_entry(
-      const std::vector<const char *> &old_user_key, const std::vector<const char *> &new_user_key, const RID *rid);
+      const std::vector<IndexUserKey> &old_user_keys, const std::vector<IndexUserKey> &new_user_keys, const RID *rid);
 
   bool is_empty() const;
 
@@ -532,7 +550,7 @@ public:
    * @param user_keys 用户键值
    * @param rid  返回值，记录记录所在的页面号和slot
    */
-  RC get_entry(const std::vector<const char *> &user_keys, std::list<RID> &rids);
+  RC get_entry(const std::vector<IndexUserKey> &user_keys, std::list<RID> &rids);
   RC sync();
 
   /**
@@ -667,7 +685,7 @@ private:
   /**
    * @brief 从用户键值和RID创建一个B+树的
    */
-  common::MemPoolItem::item_unique_ptr make_key(const std::vector<const char *> &user_keys, const RID *rid);
+  common::MemPoolItem::item_unique_ptr make_key(const std::vector<IndexUserKey> &user_keys, const RID *rid);
 
 protected:
   LogHandler     *log_handler_      = nullptr;  /// 日志处理器
@@ -701,16 +719,14 @@ public:
 
   /**
    * @brief 扫描指定范围的数据
-   * @param left_user_key 扫描范围的左边界，如果是null，则没有左边界
-   * @param left_len left_user_key 的内存大小(只有在变长字段中才会关注)
+   * @param left_user_keys 扫描范围的左边界，如果是null，则没有左边界
    * @param left_inclusive 左边界的值是否包含在内
-   * @param right_user_key 扫描范围的右边界。如果是null，则没有右边界
-   * @param right_len right_user_key 的内存大小(只有在变长字段中才会关注)
+   * @param right_user_keys 扫描范围的右边界。如果是null，则没有右边界
    * @param right_inclusive 右边界的值是否包含在内
    * TODO 重构参数表示方法
    */
-  RC open(const std::vector<const char *> &left_user_keys, bool left_inclusive,
-      const std::vector<const char *> &right_user_keys, bool right_inclusive);
+  RC open(const std::vector<IndexUserKey> &left_user_keys, bool left_inclusive,
+      const std::vector<IndexUserKey> &right_user_keys, bool right_inclusive);
 
   /**
    * @brief 获取下一条记录
@@ -733,8 +749,8 @@ private:
   /**
    * 如果key的类型是CHARS, 扩展或缩减user_key的大小刚好是schema中定义的大小
    */
-  RC fix_user_key(
-      const char *user_key, int attr_length, bool want_greater, const char **fixed_key, bool *should_inclusive);
+  RC fix_user_key(const IndexUserKey &user_key, int attr_length, bool want_greater, IndexUserKey &fixed_key,
+      bool &should_inclusive);
 
   void fetch_item(RID &rid);
 
