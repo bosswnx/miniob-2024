@@ -71,6 +71,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         GROUP
         TABLE
         TABLES
+        VIEW
         INDEX
         UNIQUE
         CALC
@@ -210,6 +211,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <sql_node>            drop_table_stmt
 %type <sql_node>            show_tables_stmt
 %type <sql_node>            desc_table_stmt
+%type <sql_node>            create_view_stmt
 %type <sql_node>            create_index_stmt
 %type <sql_node>            drop_index_stmt
 %type <sql_node>            sync_stmt
@@ -249,6 +251,7 @@ command_wrapper:
   | drop_table_stmt
   | show_tables_stmt
   | desc_table_stmt
+  | create_view_stmt
   | create_index_stmt
   | drop_index_stmt
   | sync_stmt
@@ -433,6 +436,20 @@ create_table_stmt:    /*create table 语句的语法解析树*/
     }
 
     ;
+
+create_view_stmt:
+    CREATE VIEW ID AS select_stmt
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
+      CreateViewSqlNode &create_view = $$->create_view;
+      create_view.view_name = $3;
+      free($3);
+      create_view.sub_select = $5;
+      // 得到 AS 之后的字符串
+      create_view.description = std::string(sql_string + @5.first_column, @5.last_column - @5.first_column + 1);
+    }
+    ;
+
 attr_def_list:
     /* empty */
     {

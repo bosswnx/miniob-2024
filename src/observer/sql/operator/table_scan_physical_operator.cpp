@@ -15,12 +15,19 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/table_scan_physical_operator.h"
 #include "event/sql_debug.h"
 #include "storage/table/table.h"
+#include "storage/table/view.h"
 
 using namespace std;
 
 RC TableScanPhysicalOperator::open(Trx *trx)
 {
-  RC rc = table_->get_record_scanner(record_scanner_, trx, mode_);
+  RC rc = RC::SUCCESS;
+  if (table_->is_view()) {
+    auto *view = static_cast<View *>(table_);
+    rc = view->get_record_scanner(record_scanner_view_, trx, mode_);;
+  } else {
+    rc = table_->get_record_scanner(record_scanner_, trx, mode_);
+  }
   if (rc == RC::SUCCESS) {
     tuple_.set_schema(table_, table_->table_meta().field_metas());
   }
@@ -32,31 +39,63 @@ RC TableScanPhysicalOperator::next()
 {
   RC rc = RC::SUCCESS;
 
-  bool filter_result = false;
-  while (OB_SUCC(rc = record_scanner_.next(current_record_))) {
-    LOG_TRACE("got a record. rid=%s", current_record_.rid().to_string().c_str());
-    
-    tuple_.set_record(&current_record_);
-    rc = filter(tuple_, filter_result);
-    if (rc != RC::SUCCESS) {
-      LOG_TRACE("record filtered failed=%s", strrc(rc));
-      return rc;
-    }
+  if (table_->is_view()) {
+    bool filter_result = false;
+    while (OB_SUCC(rc = record_scanner_view_.next_tuple())) {
+      auto t_tuple = record_scanner_view_.current_tuple();
+      LOG_TRACE("table scan oper got a tuple.");
+      value_list_tuple_ = ValueListTuple();
 
-    if (filter_result) {
-      sql_debug("get a tuple: %s", tuple_.to_string().c_str());
-      break;
-    } else {
-      sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
+      ValueListTuple::make(*t_tuple, value_list_tuple_, table_->name());
+      
+      rc = filter(value_list_tuple_, filter_result);
+      if (rc != RC::SUCCESS) {
+        LOG_TRACE("record filtered failed=%s", strrc(rc));
+        return rc;
+      }
+
+      if (filter_result) {
+        sql_debug("get a tuple(view): %s", value_list_tuple_.to_string().c_str());
+        break;
+      } else {
+        sql_debug("a tuple is filtered(view): %s", value_list_tuple_.to_string().c_str());
+      }
+    }
+  } else {
+    bool filter_result = false;
+    while (OB_SUCC(rc = record_scanner_.next(current_record_))) {
+      LOG_TRACE("got a record. rid=%s", current_record_.rid().to_string().c_str());
+      
+      tuple_.set_record(&current_record_);
+      rc = filter(tuple_, filter_result);
+      if (rc != RC::SUCCESS) {
+        LOG_TRACE("record filtered failed=%s", strrc(rc));
+        return rc;
+      }
+
+      if (filter_result) {
+        sql_debug("get a tuple: %s", tuple_.to_string().c_str());
+        break;
+      } else {
+        sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
+      }
     }
   }
+
+  
   return rc;
 }
 
-RC TableScanPhysicalOperator::close() { return record_scanner_.close_scan(); }
+RC TableScanPhysicalOperator::close() { 
+  value_list_tuple_ = ValueListTuple();
+  return record_scanner_.close_scan(); 
+}
 
 Tuple *TableScanPhysicalOperator::current_tuple()
 {
+  if (table_->is_view()) {
+    return &value_list_tuple_;
+  }
   tuple_.set_record(&current_record_);
   return &tuple_;
 }
@@ -68,7 +107,7 @@ void TableScanPhysicalOperator::set_predicates(vector<unique_ptr<Expression>> &&
   predicates_ = std::move(exprs);
 }
 
-RC TableScanPhysicalOperator::filter(RowTuple &tuple, bool &result)
+RC TableScanPhysicalOperator::filter(Tuple &tuple, bool &result)
 {
   RC    rc = RC::SUCCESS;
   Value value;

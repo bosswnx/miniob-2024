@@ -87,4 +87,18 @@ public:
 
     return query_fields;
   }
+
+  bool has_special_queries() {
+    for (auto &expr : query_expressions_) {
+      if (expr->type() == ExprType::AGGREGATION ||
+          expr->type() == ExprType::ARITHMETIC) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool has_join() {
+    return tables_.size() > 1;
+  }
 };

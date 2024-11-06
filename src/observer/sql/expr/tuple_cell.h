@@ -34,6 +34,10 @@ public:
     return table_name_ == other.table_name_ && field_name_ == other.field_name_ && alias_ == other.alias_;
   }
 
+  void set_table_name(const char *table_name) { table_name_ = table_name; }
+  void set_field_name(const char *field_name) { field_name_ = field_name; }
+  void set_alias(const char *alias) { alias_ = alias; }
+
 private:
   std::string table_name_;
   std::string field_name_;

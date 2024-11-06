@@ -101,6 +101,7 @@ CREATE                                  RETURN_TOKEN(CREATE);
 DROP                                    RETURN_TOKEN(DROP);
 TABLE                                   RETURN_TOKEN(TABLE);
 TABLES                                  RETURN_TOKEN(TABLES);
+VIEW                                    RETURN_TOKEN(VIEW);
 IN                                      RETURN_TOKEN(IN);
 "NOT IN"                                RETURN_TOKEN(NOT_IN);
 EXISTS                                  RETURN_TOKEN(EXISTS);

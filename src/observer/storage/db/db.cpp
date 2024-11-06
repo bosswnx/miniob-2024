@@ -29,6 +29,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "storage/clog/disk_log_handler.h"
 #include "storage/clog/integrated_log_replayer.h"
+#include "sql/expr/tuple.h"
 
 using namespace common;
 
@@ -119,6 +120,12 @@ RC Db::init(const char *name, const char *dbpath, const char *trx_kit_name, cons
     LOG_WARN("failed to open all tables. dbpath=%s, rc=%s", dbpath, strrc(rc));
     return rc;
   }
+  // 打开所有的视图
+  rc = open_all_views();
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to open all views. dbpath=%s, rc=%s", dbpath, strrc(rc));
+    return rc;
+  }
 
   rc = init_dblwr_buffer();
   if (OB_FAIL(rc)) {
@@ -180,6 +187,18 @@ Table *Db::find_table(const char *table_name) const
   if (iter != opened_tables_.end()) {
     return iter->second;
   }
+  // find view
+  // 为了让前端无感支持视图，这里查一下视图。
+  auto view = find_view(table_name);
+  return view;
+}
+
+View *Db::find_view(const char *view_name) const
+{
+  auto iter = opened_views_.find(view_name);
+  if (iter != opened_views_.end()) {
+    return iter->second;
+  }
   return nullptr;
 }
 
@@ -230,6 +249,73 @@ RC Db::open_all_tables()
 
   LOG_INFO("All table have been opened. num=%d", opened_tables_.size());
   return rc;
+}
+
+RC Db::open_all_views() {
+  // 从 __miniob_views__ 表中加载视图
+  RC rc = RC::SUCCESS;
+  auto *table = find_table("__miniob_views__");
+  if (table == nullptr) {
+    return rc;
+  }
+  RecordFileScanner scanner;
+  Trx *trx = trx_kit().create_trx(log_handler()); // 此时已经加载好 log handler 了。
+  rc = table->get_record_scanner(scanner, trx, ReadWriteMode::READ_ONLY);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to open scanner for table: %s, rc=%s", table->name(), strrc(rc));
+    return rc;
+  }
+
+  Record record;
+  RowTuple tuple_;
+  Value value;
+  string view_name;
+  string view_description;
+  bool is_updatable;
+  tuple_.set_schema(table, table->table_meta().field_metas());
+  while (OB_SUCC(scanner.next(record))) {
+    tuple_.set_record(&record);
+    rc = tuple_.cell_at(0, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    view_name = value.get_string();
+    rc = tuple_.cell_at(1, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    view_description = value.get_string();
+    rc = tuple_.cell_at(2, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    is_updatable = value.get_int();
+    View *view = new View(view_name, view_description, is_updatable, next_view_id_++);
+    opened_views_[view_name] = view;
+    LOG_DEBUG("init views: view_name=%s, view_description=%s, is_updatable=%d", view_name.c_str(), view_description.c_str(), is_updatable);
+  }
+  return rc;
+}
+
+RC Db::add_view(const char *view_name, const char *view_description, bool is_updatable)
+{
+  if (common::is_blank(view_name)) {
+    LOG_ERROR("Failed to add view, view name cannot be empty.");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  if (opened_views_.count(view_name) != 0) {
+    LOG_ERROR("Failed to add view, view name has been opened before.");
+    return RC::SCHEMA_TABLE_EXIST;
+  }
+
+  View *view = new View(view_name, view_description, is_updatable, next_view_id_++);
+  opened_views_[view_name] = view;
+  LOG_INFO("Successfully added a new view (%s).", view_name);
+  return RC::SUCCESS;
 }
 
 const char *Db::name() const { return name_.c_str(); }

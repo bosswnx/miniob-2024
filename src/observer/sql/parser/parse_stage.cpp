@@ -60,3 +60,16 @@ RC ParseStage::handle_request(SQLStageEvent *sql_event)
 
   return RC::SUCCESS;
 }
+
+RC ParseStage::handle_view_request(SQLStageEvent *sql_event)
+{
+  // 处理 view
+  for (const auto &view_sql : sql_event->sql_views()) {
+    ParsedSqlResult parsed_sql_result_view;
+    parse(view_sql.c_str(), &parsed_sql_result_view);
+    // 不用处理错误，在创建视图时已经处理过了，让我们相信硬盘。
+    sql_event->add_view_sql_node(std::move(parsed_sql_result_view.sql_nodes().front()));
+  }
+
+  return RC::SUCCESS;
+}
