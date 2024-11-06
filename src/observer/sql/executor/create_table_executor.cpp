@@ -44,7 +44,7 @@ RC CreateTableExecutor::execute(SQLStageEvent *sql_event)
       size_ = create_table_stmt->attr_infos().size();
     } else {
       std::vector<AttrInfoSqlNode> attr_infos;
-      for (int i = 0; i < create_table_stmt->query_fields_meta().size(); ++i) {
+      for (size_t i = 0; i < create_table_stmt->query_fields_meta().size(); ++i) {
         AttrInfoSqlNode attr_info;
         attr_info.nullable = create_table_stmt->query_fields_meta()[i].nullable();
         attr_info.name = create_table_stmt->query_fields_meta()[i].name();
