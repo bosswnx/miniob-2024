@@ -20,6 +20,20 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/select_stmt.h"
 
+bool check_is_updatable(SelectStmt *select_stmt) {
+    // 检查是否有聚合函数, 算数表达式
+    if (select_stmt->has_special_queries()) {
+        return false;
+    }
+
+    // 检查是否有 join
+    if (select_stmt->has_join()) {
+        return false;
+    }
+
+    return true;
+}
+
 RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
   // create table select
   SelectStmt *select_stmt = nullptr;
@@ -38,12 +52,16 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
   
   if (create_view.sub_select != nullptr) {
     auto *create_view_stmt = static_cast<CreateViewStmt *>(stmt);
+    // 解析到 is_updatable
+    // 不可更新的判断条件为：
+    // 1. 聚合函数、Join
+    create_view_stmt->set_view_updatable(check_is_updatable(select_stmt));
     create_view_stmt->set_select_stmt(select_stmt);
     create_view_stmt->set_query_fields(select_stmt->get_query_fields());
     create_view_stmt->set_view_definition(create_view.description);
   }
 
-  sql_debug("create table statement: table name %s", create_view.view_name.c_str());
+  sql_debug("create view statement: view name %s", create_view.view_name.c_str());
   
   return RC::SUCCESS;
 }

@@ -73,15 +73,30 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
 
     // check views
   // 逻辑暂时放在这里，做可行性验证
-  if (sql_event->sql_node()->flag == SCF_SELECT) {
+  if (sql_event->sql_node()->flag == SCF_SELECT || sql_event->sql_node()->flag == SCF_INSERT) {
     auto *db = sql_event->session_event()->session()->get_current_db();
     if (db == nullptr) return RC::INTERNAL;
-    for (auto &relation : sql_event->sql_node()->selection.relations) {
-      View *view = db->find_view(relation.name.c_str());
+
+    std::vector<std::string> view_names;
+    switch (sql_event->sql_node()->flag)
+    {
+    case SCF_SELECT:
+      for (auto &relation : sql_event->sql_node()->selection.relations) view_names.push_back(relation.name);
+      break;
+    case SCF_INSERT:
+      view_names.push_back(sql_event->sql_node()->insertion.relation_name);
+      break;
+    default:
+      break;
+    }
+
+    for (auto &view_name : view_names) {
+      View *view = db->find_view(view_name.c_str());
       if (view == nullptr) continue;
       sql_event->add_view_sql(view->view_definition());
       sql_event->add_view_name(view->view_name());
     }
+    LOG_DEBUG("found %d views in your sql", sql_event->sql_views().size());
     // ... cache stage
     // 解析 View 的 SQL
     rc = parse_stage_.handle_view_request(sql_event);

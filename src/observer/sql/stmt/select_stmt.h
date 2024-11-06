@@ -89,7 +89,9 @@ public:
   }
 
   bool has_special_queries() {
+    LOG_DEBUG("expr size: %d", query_expressions_.size());
     for (auto &expr : query_expressions_) {
+      LOG_DEBUG("expr type: %d", expr->type());
       if (expr->type() == ExprType::AGGREGATION ||
           expr->type() == ExprType::ARITHMETIC) {
         return true;

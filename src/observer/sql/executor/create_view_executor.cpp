@@ -56,20 +56,6 @@ void CreateViewExecutor::make_view_values(std::vector<Value> &values, const std:
     values.push_back(value);
 }
 
-bool check_is_updatable(SelectStmt *select_stmt) {
-    // 检查是否有聚合函数, 算数表达式
-    if (select_stmt->has_special_queries()) {
-        return false;
-    }
-
-    // 检查是否有 join
-    if (select_stmt->has_join()) {
-        return false;
-    }
-
-    return true;
-}
-
 RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
     Stmt *stmt = sql_event->stmt();
     Session *session = sql_event->session_event()->session();
@@ -87,6 +73,10 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
 
     RC rc = RC::SUCCESS;
 
+    // auto select_stmt = create_view_stmt->select_stmt();
+    // bool is_updatable = check_is_updatable(select_stmt);
+    bool is_updatable = create_view_stmt->is_view_updatable();
+
     // 走一遍 select 的物理算子，确保 select 语句没问题才能创建视图
     rc = create_view_stmt->physical_operator()->open(session->current_trx());
     while (create_view_stmt->physical_operator()->next() == RC::SUCCESS);
@@ -98,12 +88,6 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
     // 创建视图
     const char *view_name = create_view_stmt->view_name().c_str();
     const char *view_definition = create_view_stmt->view_definition().c_str();
-
-    // 解析到 is_updatable
-    // 不可更新的判断条件为：
-    // 1. 聚合函数、Join
-    auto select_stmt = create_view_stmt->select_stmt();
-    bool is_updatable = check_is_updatable(select_stmt);
 
     // 检查名字重复性
     if (session->get_current_db()->find_view(view_name) != nullptr || 

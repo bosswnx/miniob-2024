@@ -37,6 +37,15 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
+  // 带聚合等的 View 不可插入
+  if (table->is_view()) {
+    auto *view = static_cast<View *>(table);
+    if (!view->is_updatable()) {
+      LOG_WARN("the target table(view) of the INSERT is not insertable-into");
+      return RC::INVALID_ARGUMENT;
+    }
+  }
+
   // check the fields number
   Value           *values     = inserts.values.data();
   const int        value_num  = static_cast<int>(inserts.values.size());

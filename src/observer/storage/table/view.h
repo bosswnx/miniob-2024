@@ -38,6 +38,10 @@ class View : public Table {
 
   RC get_record_scanner(RecordPhysicalOperatorScanner &scanner, Trx *trx, ReadWriteMode mode);
 
+  void set_base_tables(const std::vector<Table *> &tables) { base_tables_ = tables; }
+  
+  const std::vector<Table *> &base_tables() const { return base_tables_; }
+
  private:
   std::string view_name_;
   std::string view_definition_;
@@ -45,4 +49,7 @@ class View : public Table {
   int32_t view_id_;
 
   std::unique_ptr<PhysicalOperator> operator_;
+
+  // base table
+  std::vector<Table *> base_tables_;
 };

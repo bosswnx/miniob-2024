@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/insert_physical_operator.h"
 #include "sql/stmt/insert_stmt.h"
 #include "storage/table/table.h"
+#include "storage/table/view.h"
 #include "storage/trx/trx.h"
 
 using namespace std;
@@ -25,17 +26,76 @@ InsertPhysicalOperator::InsertPhysicalOperator(Table *table, vector<Value> &&val
 
 RC InsertPhysicalOperator::open(Trx *trx)
 {
+  RC rc = RC::SUCCESS;
   Record record;
-  RC     rc = table_->make_record(static_cast<int>(values_.size()), values_.data(), record);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to make record. rc=%s", strrc(rc));
-    return rc;
+
+  if (table_->is_view()) {
+    // 重新编排 Values
+    auto *view = static_cast<View *>(table_);
+    auto base_tables = view->base_tables();
+    unordered_map<string, std::vector<Value>> base_table_values;
+    unordered_map<string, Table *> base_table_map;
+    for (auto *base_table : base_tables) {
+      // 对于某个 base table（可能有join，会有多个base table）
+      std::vector<Value> base_table_value;
+      for (auto &field : *base_table->table_meta().field_metas()) {
+        // 遍历这个 base table 的所有 field
+        bool found = false;
+        Value value;
+        size_t idx = 0;
+        for (auto &view_field : *view->table_meta().field_metas()) {
+          // 遍历视图的所有 field
+          // if (field.name() == view_field.name()) { // 犯错误了
+          if (strcmp(field.name(), view_field.name()) == 0) {
+            // 如果找到一个视图的 field 和 base table 的 field 名字相同
+            found = true;
+            value = values_[idx];
+            break;
+          }
+          ++idx;
+        }
+        if (!found) {
+          // 如果没有找到，判断可不可为null
+          if (!field.nullable()) {
+            LOG_WARN("when handing view insert, field %s is not nullable, so we cannot insert", field.name()); 
+            return RC::INVALID_ARGUMENT;
+          }
+          value.set_null();
+        }
+        base_table_value.push_back(value);
+      }
+      base_table_map[base_table->name()] = base_table;
+      base_table_values[base_table->name()] = base_table_value;
+    }
+    
+    // 插入
+    for (auto &base_table : base_tables) {
+      auto &values = base_table_values[base_table->name()];
+      Record record;
+      rc = base_table->make_record(static_cast<int>(values.size()), values.data(), record);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to make record. rc=%s", strrc(rc));
+        return rc;
+      }
+      rc = trx->insert_record(base_table, record);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
+        return rc;
+      }
+    }
+  } else {
+    rc = table_->make_record(static_cast<int>(values_.size()), values_.data(), record);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to make record. rc=%s", strrc(rc));
+      return rc;
+    }
+
+    rc = trx->insert_record(table_, record);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
+    }
   }
 
-  rc = trx->insert_record(table_, record);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
-  }
   return rc;
 }
 

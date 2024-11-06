@@ -47,7 +47,7 @@ RC ResolveStage::handle_request(SQLStageEvent *sql_event)
   }
 
 
-  // 创建视图的 Stmt
+  // 创建视图的 Select Stmt
   auto &sql_node_views = sql_event->sql_node_views();
   for (size_t i=0; i<sql_event->sql_node_views().size(); ++i) {
     Stmt *view_stmt = nullptr;
@@ -61,6 +61,7 @@ RC ResolveStage::handle_request(SQLStageEvent *sql_event)
     auto *view = db->find_view(sql_event->views_name()[i].c_str());
     auto select_stmt_ = static_cast<SelectStmt *>(view_stmt);
     view->init_table_meta(select_stmt_->get_query_fields()); // 初始化 table_meta
+    view->set_base_tables(select_stmt_->tables()); // for update, insert
   }
   // 到这里，视图和视图的描述的 Stmt 都已经创建好了
 

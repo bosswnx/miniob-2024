@@ -45,8 +45,10 @@ public:
   void set_select_stmt(SelectStmt *select_stmt) { select_stmt_ = select_stmt; }
   void set_physical_operator(std::unique_ptr<PhysicalOperator> physical_operator) { physical_operator_ = std::move(physical_operator); }
   void set_view_definition(const std::string &view_definition) { view_definition_ = view_definition; }
+  void set_view_updatable(bool is_view_updatable) { is_view_updatable_ = is_view_updatable; }
   SelectStmt *select_stmt() const { return select_stmt_; }
   PhysicalOperator *physical_operator() const { return physical_operator_.get(); }
+  bool is_view_updatable() const { return is_view_updatable_; }
 
   const std::vector<FieldMeta> &query_fields_meta() const { return query_fields_meta_; }
   void set_query_fields(const std::vector<FieldMeta> &query_fields_meta) { query_fields_meta_ = query_fields_meta; }
@@ -61,4 +63,6 @@ private:
   SelectStmt *select_stmt_ = nullptr;
   std::unique_ptr<PhysicalOperator> physical_operator_ = nullptr;
   std::vector<FieldMeta> query_fields_meta_;
+  
+  bool is_view_updatable_ = false;
 };
