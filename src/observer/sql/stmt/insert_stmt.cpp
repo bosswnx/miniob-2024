@@ -37,13 +37,34 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  // 带聚合等的 View 不可插入
+  
   if (table->is_view()) {
     auto *view = static_cast<View *>(table);
+    // 带聚合等的 View 不可插入
     if (!view->is_updatable()) {
       LOG_WARN("the target table(view) of the INSERT is not insertable-into");
       return RC::INVALID_ARGUMENT;
     }
+
+    // 有 join 的，如果没有 attrs_name，不可插入~
+    if (inserts.attrs_name.empty() && view->base_tables().size() > 1) {
+      LOG_WARN("Can not insert into join view without fields list");
+      return RC::INVALID_ARGUMENT;
+    }
+
+    // 有 join 的，不可以同时插入多个表的数据
+    std::string test_table_name;
+    for (auto &attr_name : inserts.attrs_name) {
+      if (test_table_name != "") {
+        if (view->find_base_table_name(attr_name) != test_table_name) {
+          LOG_WARN("Can not insert into join view with fields from multiple tables");
+          return RC::INVALID_ARGUMENT;
+        }
+      } else {
+        test_table_name = view->find_base_table_name(attr_name);
+      }
+    }
+
   }
 
   // check the fields number
@@ -51,11 +72,22 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
   const int        value_num  = static_cast<int>(inserts.values.size());
   const TableMeta &table_meta = table->table_meta();
   const int        field_num  = table_meta.field_num() - table_meta.sys_field_num();
-  if (field_num != value_num) {
-    LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
-    return RC::SCHEMA_FIELD_MISSING;
+
+  if (!table->is_view() || (table->is_view() && inserts.attrs_name.empty())) {
+    // 不是视图，或者是没有指定 field list 的视图插入操作。
+    if (field_num != value_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+  } else {
+    // 指定了 field list 的视图的视图插入操作，需要检查 attrs_name 是否和 value_num 匹配
+    if (inserts.attrs_name.size() != value_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
   }
 
+  // TODO(soulter): 当制定了attr_name并且是视图并且字段长度不等于表的长时，这里会报错。
   // 检查每列的类型和nullable 是否匹配(在执行阶段还有检查）
   // 注意：sys_field 是为了 mvcc 等设计的系统隐藏字段，不检查
   for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
