@@ -43,7 +43,7 @@ public:
     field_id_    = field.field_id_;
     nullable_    = field.nullable_;
     vector_dim_  = field.vector_dim_;
-    
+
     table_name_  = field.table_name_;
   }
 
@@ -69,6 +69,8 @@ public:
 
   // view 中，需要识别到某个 Field 属于哪个表
   std::string table_name_;
+
+  void set_name(const char *name) { name_ = name; }
 
 protected:
   string   name_;

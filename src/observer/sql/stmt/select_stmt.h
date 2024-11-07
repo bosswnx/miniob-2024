@@ -79,10 +79,21 @@ public:
         FieldMeta field_meta(*field_expr->field().meta());
         // field_meta.table_name_ = *field_expr.table_name(); // 犯错误了
         field_meta.table_name_ = (*field_expr).table_name(); // 记录表名
+        if (!expr->alias_std_string().empty()) {
+          // 别名覆盖字段名
+          field_meta.set_name(expr->alias_std_string().c_str());
+        }
         query_fields.push_back(field_meta);
       } else {
         FieldMeta field_meta;
-        field_meta.init(expr->name(), expr->value_type(), 0, expr->value_length(), true, 0);
+        std::string field_name;
+        if (!expr->alias_std_string().empty()) {
+          // 别名覆盖字段名
+          field_name = expr->alias_std_string();
+        } else {
+          field_name = expr->name();
+        }
+        field_meta.init(field_name.c_str(), expr->value_type(), 0, expr->value_length(), true, 0);
         query_fields.push_back(field_meta);
       }
     }
