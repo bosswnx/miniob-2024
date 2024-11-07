@@ -524,6 +524,7 @@ RC ExpressionBinder::bind_aggregate_expression(
 
   auto aggregate_expr = make_unique<AggregateExpr>(aggregate_type, std::move(child_expr));
   aggregate_expr->set_name(unbound_aggregate_expr->name());
+  aggregate_expr->set_alias(unbound_aggregate_expr->alias());
   // 检查聚合表达式是否合法
   rc = check_aggregate_expression(*aggregate_expr);
   if (OB_FAIL(rc)) {
