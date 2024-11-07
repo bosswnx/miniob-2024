@@ -34,7 +34,7 @@ void View::init_table_meta(const vector<FieldMeta> &fields) {
         }
         attr_infos.push_back(attr_info);
     }
-    table_meta_.init(view_id_, view_name_.c_str(), &fields, attr_infos, StorageFormat::ROW_FORMAT);
+    table_meta_.init(view_id_, view_name_.c_str(), nullptr, attr_infos, StorageFormat::ROW_FORMAT);
 }
 
 RC View::get_record_scanner(RecordPhysicalOperatorScanner &scanner, Trx *trx, ReadWriteMode mode) {

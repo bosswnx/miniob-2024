@@ -59,7 +59,6 @@ private:
   RowTuple                                 tuple_;
 
   // view 会用到这个
-  ValueListTuple                           value_list_tuple_;
   std::vector<std::unique_ptr<Expression>> predicates_;  // TODO chang predicate to table tuple filter
   RecordPhysicalOperatorScanner            record_scanner_view_;
 };
