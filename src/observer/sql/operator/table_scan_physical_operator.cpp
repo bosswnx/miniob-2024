@@ -46,12 +46,17 @@ RC TableScanPhysicalOperator::next()
       LOG_TRACE("table scan oper got a tuple.");
       ValueListTuple value_list_tuple_ = ValueListTuple();
 
-      ValueListTuple::make(*t_tuple, value_list_tuple_, table_->name());
+      ValueListTuple::make(*t_tuple, value_list_tuple_);
 
       // 重新创建 Record，为了转换成 RowTuple
       table_->make_record(value_list_tuple_.cell_num(), value_list_tuple_.cells().data(), current_record_);
+      tuple_.set_rid(RID(t_tuple->raw_rid()));
+      tuple_.set_table_name(t_tuple->raw_table_name());
+      tuple_.set_record(&current_record_);
+
+      LOG_DEBUG("view record raw rid %s, raw table %s",tuple_.raw_rid().to_string().c_str(), tuple_.raw_table_name().c_str());
       
-      rc = filter(value_list_tuple_, filter_result);
+      rc = filter(tuple_, filter_result);
       if (rc != RC::SUCCESS) {
         LOG_TRACE("record filtered failed=%s", strrc(rc));
         return rc;
@@ -70,6 +75,9 @@ RC TableScanPhysicalOperator::next()
       LOG_TRACE("got a record. rid=%s", current_record_.rid().to_string().c_str());
       
       tuple_.set_record(&current_record_);
+      tuple_.set_rid(RID(current_record_.rid()));
+      tuple_.set_table_name(table_->name());
+
       rc = filter(tuple_, filter_result);
       if (rc != RC::SUCCESS) {
         LOG_TRACE("record filtered failed=%s", strrc(rc));
@@ -115,6 +123,7 @@ RC TableScanPhysicalOperator::filter(Tuple &tuple, bool &result)
   Value value;
 
   bool has_true = false;
+  LOG_DEBUG("table_get has %d predicates", predicates_.size());
   for (unique_ptr<Expression> &expr : predicates_) {
     rc = expr->get_value(tuple, value);
     if (rc != RC::SUCCESS) {

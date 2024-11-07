@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/session_event.h"
 #include "event/sql_event.h"
 #include "session/session.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/db/db.h"
 
 RC SqlTaskHandler::handle_event(Communicator *communicator)
@@ -71,9 +72,11 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
     return rc;
   }
 
-    // check views
+  // check views
   // 逻辑暂时放在这里，做可行性验证
-  if (sql_event->sql_node()->flag == SCF_SELECT || sql_event->sql_node()->flag == SCF_INSERT) {
+  if (sql_event->sql_node()->flag == SCF_SELECT || 
+    sql_event->sql_node()->flag == SCF_INSERT ||
+    sql_event->sql_node()->flag == SCF_UPDATE) {
     auto *db = sql_event->session_event()->session()->get_current_db();
     if (db == nullptr) return RC::INTERNAL;
 
@@ -86,6 +89,8 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
     case SCF_INSERT:
       view_names.push_back(sql_event->sql_node()->insertion.relation_name);
       break;
+    case SCF_UPDATE:
+      view_names.push_back(sql_event->sql_node()->update.relation_name);
     default:
       break;
     }

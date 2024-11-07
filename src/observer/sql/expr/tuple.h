@@ -162,6 +162,15 @@ public:
     result = 0;
     return rc;
   }
+
+  void set_rid(const RID &rid) { rid_ = rid; }
+  void set_table_name(const std::string &table_name) { table_name_ = table_name; }
+  RID  raw_rid() const { return rid_; }
+  const std::string &raw_table_name() const { return table_name_; }
+
+protected:
+  RID rid_;
+  std::string table_name_;
 };
 
 /**
@@ -462,7 +471,7 @@ public:
   }
 
   // 将一个 Tuple 转换为 ValueListTuple
-  static RC make(const Tuple &tuple, ValueListTuple &value_list, std::string table_name = "")
+  static RC make(const Tuple &tuple, ValueListTuple &value_list)
   {
     const int cell_num = tuple.cell_num();
     for (int i = 0; i < cell_num; i++) {
@@ -476,13 +485,6 @@ public:
       rc = tuple.spec_at(i, spec);
       if (OB_FAIL(rc)) {
         return rc;
-      }
-
-      if (!table_name.empty()) {
-        spec.set_table_name(table_name.c_str());
-        spec.set_field_name(spec.alias());
-        std::string alias = table_name + "." + spec.alias();
-        spec.set_alias(alias.c_str());
       }
 
       value_list.cells_.push_back(cell);

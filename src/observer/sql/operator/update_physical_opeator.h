@@ -27,4 +27,7 @@ private:
   Table                                   *table_ = nullptr;
   std::vector<FieldMeta>                   field_metas_;  // 需要更新的字段，等号左边
   std::vector<std::unique_ptr<Expression>> exprs_;        // 更新的表达式，等号右边
+
+  unordered_map<string, vector<size_t>> selected_update_field_idx_;
+  Table *update_table = nullptr;
 };
