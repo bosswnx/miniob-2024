@@ -32,14 +32,15 @@ class Db;
 class CreateViewStmt : public Stmt
 {
 public:
-  explicit CreateViewStmt(const std::string &view_name)
-      : view_name_(view_name)
+  explicit CreateViewStmt(const std::string &view_name, const std::vector<std::string> &attrs_name)
+      : view_name_(view_name), attrs_name_(attrs_name)
   {}
   virtual ~CreateViewStmt() = default;
 
   StmtType type() const override { return StmtType::CREATE_VIEW; }
 
   const std::string &view_name() const { return view_name_; }
+  const std::vector<std::string> &attrs_name() const { return attrs_name_; }
   const std::string &view_definition() const { return view_definition_; }
 
   void set_select_stmt(SelectStmt *select_stmt) { select_stmt_ = select_stmt; }
@@ -61,6 +62,7 @@ public:
 private:
   std::string view_name_;
   std::string view_definition_;
+  std::vector<std::string> attrs_name_;
   
   SelectStmt *select_stmt_ = nullptr;
   std::unique_ptr<PhysicalOperator> physical_operator_ = nullptr;

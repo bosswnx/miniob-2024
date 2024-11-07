@@ -78,7 +78,7 @@ public:
   Table *find_table(int32_t table_id) const;
   
   View *find_view(const char *view_name) const;
-  RC add_view(const char *view_name, const char *view_description, bool is_updatable);
+  RC add_view(const char *view_name, const vector<string> attrs_name, const char *view_description, bool is_updatable);
 
   /// @brief 当前数据库的名称
   const char *name() const;

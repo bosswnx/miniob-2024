@@ -293,14 +293,24 @@ RC Db::open_all_views() {
       return rc;
     }
     is_updatable = value.get_int();
-    View *view = new View(view_name, view_description, is_updatable, next_view_id_++);
+    rc = tuple_.cell_at(3, value);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("init views: Failed to get value from tuple. rc=%s", strrc(rc));
+      return rc;
+    }
+    string attrs_str = value.get_string();
+    vector<string> attrs_name;
+    // , 分割
+    split_string(attrs_str, ",", attrs_name);
+
+    View *view = new View(view_name, attrs_name, view_description, is_updatable, next_view_id_++);
     opened_views_[view_name] = view;
     LOG_DEBUG("init views: view_name=%s, view_description=%s, is_updatable=%d", view_name.c_str(), view_description.c_str(), is_updatable);
   }
   return rc;
 }
 
-RC Db::add_view(const char *view_name, const char *view_description, bool is_updatable)
+RC Db::add_view(const char *view_name, const vector<string> attrs_name, const char *view_description, bool is_updatable)
 {
   if (common::is_blank(view_name)) {
     LOG_ERROR("Failed to add view, view name cannot be empty.");
@@ -312,7 +322,7 @@ RC Db::add_view(const char *view_name, const char *view_description, bool is_upd
     return RC::SCHEMA_TABLE_EXIST;
   }
 
-  View *view = new View(view_name, view_description, is_updatable, next_view_id_++);
+  View *view = new View(view_name, attrs_name, view_description, is_updatable, next_view_id_++);
   opened_views_[view_name] = view;
   LOG_INFO("Successfully added a new view (%s).", view_name);
   return RC::SUCCESS;

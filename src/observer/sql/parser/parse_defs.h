@@ -247,6 +247,7 @@ struct DropIndexSqlNode
 struct CreateViewSqlNode
 {
   std::string view_name;
+  std::vector<std::string> attrs_name;      ///< attributes
   SubSelectSqlNode* sub_select = nullptr;
   std::string description;
 };

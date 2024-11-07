@@ -31,5 +31,5 @@ public:
 
   RC execute(SQLStageEvent *sql_event);
   void init_sys_view_table_attr_infos(std::vector<AttrInfoSqlNode> &attr_infos);
-  void make_view_values(std::vector<Value> &values, const std::string &view_name, const std::string &view_definition, bool is_updatable);
+  void make_view_values(std::vector<Value> &values, const std::vector<std::string> &attrs_name, const std::string &view_name, const std::string &view_definition, bool is_updatable);
 };

@@ -32,33 +32,41 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
   // create table select
   SelectStmt *select_stmt = nullptr;
   Stmt *stmt_ = nullptr;
-  if (create_view.sub_select != nullptr) {
-    // create table select
-    RC rc = Stmt::create_stmt(db, *create_view.sub_select, stmt_);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to create stmt. rc=%d:%s", rc, strrc(rc));
-      return rc;
-    }
-    // cast to SelectStmt
-    select_stmt = static_cast<SelectStmt *>(stmt_);
+
+  if (create_view.sub_select == nullptr) {
+    return RC::INVALID_ARGUMENT;
   }
-  stmt = new CreateViewStmt(create_view.view_name);
+
+  RC rc = Stmt::create_stmt(db, *create_view.sub_select, stmt_);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to create stmt. rc=%d:%s", rc, strrc(rc));
+    return rc;
+  }
+  // cast to SelectStmt
+  select_stmt = static_cast<SelectStmt *>(stmt_);
+
+  auto query_fields = select_stmt->get_query_fields();
+
+  if (query_fields.size() != create_view.attrs_name.size()) {
+    LOG_WARN("select query expr num count doesn't match attr count");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  stmt = new CreateViewStmt(create_view.view_name, create_view.attrs_name);
   
-  if (create_view.sub_select != nullptr) {
-    auto *create_view_stmt = static_cast<CreateViewStmt *>(stmt);
-    // 解析到 is_updatable
-    // 不可更新的判断条件为：
-    // 1. 聚合函数、Join
-    create_view_stmt->set_view_updatable(check_is_updatable(select_stmt));
-    create_view_stmt->set_select_stmt(select_stmt);
-    create_view_stmt->set_query_fields(select_stmt->get_query_fields());
-    // 检查 duplicate column name
-    if (create_view_stmt->has_duplicate_column_name()) {
-      LOG_WARN("duplicate column name in view definition(ERROR 1060)");
-      return RC::INVALID_ARGUMENT;
-    }
-    create_view_stmt->set_view_definition(create_view.description);
+  auto *create_view_stmt = static_cast<CreateViewStmt *>(stmt);
+  // 解析到 is_updatable
+  // 不可更新的判断条件为：
+  // 1. 聚合函数、Join
+  create_view_stmt->set_view_updatable(check_is_updatable(select_stmt));
+  create_view_stmt->set_select_stmt(select_stmt);
+  create_view_stmt->set_query_fields(query_fields);
+  // 检查 duplicate column name
+  if (create_view_stmt->has_duplicate_column_name()) {
+    LOG_WARN("duplicate column name in view definition(ERROR 1060)");
+    return RC::INVALID_ARGUMENT;
   }
+  create_view_stmt->set_view_definition(create_view.description);
 
   sql_debug("create view statement: view name %s", create_view.view_name.c_str());
   

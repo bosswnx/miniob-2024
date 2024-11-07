@@ -448,6 +448,24 @@ create_view_stmt:
       // 得到 AS 之后的字符串
       create_view.description = std::string(sql_string + @5.first_column, @5.last_column - @5.first_column + 1);
     }
+    | CREATE VIEW ID LBRACE id_list RBRACE AS select_stmt
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
+      CreateViewSqlNode &create_view = $$->create_view;
+      create_view.view_name = $3;
+      free($3);
+
+      std::vector<std::string> *src_attrs = $5;
+      if (src_attrs != nullptr) {
+        create_view.attrs_name.swap(*src_attrs);
+        delete src_attrs;
+      }
+      std::reverse(create_view.attrs_name.begin(), create_view.attrs_name.end());
+      
+      create_view.sub_select = $8;
+      // 得到 AS 之后的字符串
+      create_view.description = std::string(sql_string + @8.first_column, @8.last_column - @8.first_column + 1);
+    }
     ;
 
 attr_def_list:
