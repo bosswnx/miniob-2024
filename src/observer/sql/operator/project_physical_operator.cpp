@@ -65,8 +65,6 @@ RC ProjectPhysicalOperator::close()
 Tuple *ProjectPhysicalOperator::current_tuple()
 {
   tuple_.set_tuple(children_[0]->current_tuple());
-  tuple_.set_rid(children_[0]->current_tuple()->raw_rid());
-  tuple_.set_table_name(children_[0]->current_tuple()->raw_table_name());
   return &tuple_;
 }
 

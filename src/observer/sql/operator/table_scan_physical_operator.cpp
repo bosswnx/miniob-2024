@@ -45,13 +45,16 @@ RC TableScanPhysicalOperator::next()
       auto t_tuple = record_scanner_view_.current_tuple();
       LOG_TRACE("table scan oper got a tuple.");
       ValueListTuple value_list_tuple_ = ValueListTuple();
-
       ValueListTuple::make(*t_tuple, value_list_tuple_);
-
-      // 重新创建 Record，为了转换成 RowTuple
-      table_->make_record(value_list_tuple_.cell_num(), value_list_tuple_.cells().data(), current_record_);
+      for (int i = 0; i < value_list_tuple_.cell_num(); i++) {
+        // LOG_DEBUG("value_list_tuple cell slot %d page %d tablename %s", value_list_tuple_.cells()[i].slot_num(), value_list_tuple_.cells()[i].page_num(), value_list_tuple_.cells()[i].table_name().c_str());
+        tuple_.rid_list_.emplace_back(value_list_tuple_.cells()[i].page_num(), value_list_tuple_.cells()[i].slot_num());
+        tuple_.table_name_list_.emplace_back(value_list_tuple_.cells()[i].table_name());
+      }
       tuple_.set_rid(RID(t_tuple->raw_rid()));
       tuple_.set_table_name(t_tuple->raw_table_name());
+      // 重新创建 Record，为了转换成 RowTuple
+      table_->make_record(value_list_tuple_.cell_num(), value_list_tuple_.cells().data(), current_record_);
       tuple_.set_record(&current_record_);
 
       LOG_DEBUG("view record raw rid %s, raw table %s",tuple_.raw_rid().to_string().c_str(), tuple_.raw_table_name().c_str());
@@ -72,7 +75,7 @@ RC TableScanPhysicalOperator::next()
   } else {
     bool filter_result = false;
     while (OB_SUCC(rc = record_scanner_.next(current_record_))) {
-      LOG_TRACE("got a record. rid=%s", current_record_.rid().to_string().c_str());
+      LOG_DEBUG("got a record. rid=%s", current_record_.rid().to_string().c_str());
       
       tuple_.set_record(&current_record_);
       tuple_.set_rid(RID(current_record_.rid()));
@@ -103,9 +106,6 @@ RC TableScanPhysicalOperator::close() {
 
 Tuple *TableScanPhysicalOperator::current_tuple()
 {
-  // if (table_->is_view()) {
-  //   return &value_list_tuple_;
-  // }
   tuple_.set_record(&current_record_);
   return &tuple_;
 }

@@ -53,6 +53,8 @@ public:
   const std::vector<FieldMeta> &query_fields_meta() const { return query_fields_meta_; }
   void set_query_fields(const std::vector<FieldMeta> &query_fields_meta) { query_fields_meta_ = query_fields_meta; }
 
+  bool has_duplicate_column_name();
+
 
   static RC            create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt);
 

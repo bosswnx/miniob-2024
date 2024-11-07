@@ -50,11 +50,6 @@ RC OrderByPhysicalOperator::open(Trx *trx)
   while ((rc = child->next()) == RC::SUCCESS) {
     ValueListTuple tuple;
     ValueListTuple::make(*child->current_tuple(), tuple);
-
-    // 传递原始表信息
-    tuple.set_table_name(child->current_tuple()->raw_table_name());
-    tuple.set_rid(child->current_tuple()->raw_rid());
-
     tuples_.push_back(std::make_unique<ValueListTuple>(tuple));
   }
 
