@@ -255,6 +255,15 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
       if (select_expr->type() == ExprType::UNBOUND_AGGREGATION) {
         continue;
       }
+
+      if (select_expr->type() == ExprType::ARITHMETIC) {
+        ArithmeticExpr *arith_expr = static_cast<ArithmeticExpr *>(select_expr.get());
+        if (arith_expr->left() != nullptr && arith_expr->left()->type() == ExprType::UNBOUND_AGGREGATION && arith_expr->right() != nullptr && arith_expr->right()->type() == ExprType::UNBOUND_AGGREGATION) {
+          continue;
+        }
+      }
+
+
       bool found = false;
       for (unique_ptr<Expression> &group_by_expr : select_sql.group_by) {
         if (select_expr->equal(*group_by_expr)) {
