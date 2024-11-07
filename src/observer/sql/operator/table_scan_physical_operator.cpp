@@ -46,8 +46,10 @@ RC TableScanPhysicalOperator::next()
       LOG_TRACE("table scan oper got a tuple.");
       ValueListTuple value_list_tuple_ = ValueListTuple();
       ValueListTuple::make(*t_tuple, value_list_tuple_);
+      tuple_.rid_list_.clear();
+      tuple_.table_name_list_.clear();
       for (int i = 0; i < value_list_tuple_.cell_num(); i++) {
-        // LOG_DEBUG("value_list_tuple cell slot %d page %d tablename %s", value_list_tuple_.cells()[i].slot_num(), value_list_tuple_.cells()[i].page_num(), value_list_tuple_.cells()[i].table_name().c_str());
+        LOG_DEBUG("value_list_tuple cell slot %d page %d tablename %s", value_list_tuple_.cells()[i].slot_num(), value_list_tuple_.cells()[i].page_num(), value_list_tuple_.cells()[i].table_name().c_str());
         tuple_.rid_list_.emplace_back(value_list_tuple_.cells()[i].page_num(), value_list_tuple_.cells()[i].slot_num());
         tuple_.table_name_list_.emplace_back(value_list_tuple_.cells()[i].table_name());
       }

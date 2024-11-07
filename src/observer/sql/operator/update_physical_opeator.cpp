@@ -25,7 +25,6 @@ RC UpdatePhysicalOperator::open(Trx *trx)
         auto table_name_in_view = view->find_base_table_name(field_meta.name());
         if (table_name_in_view == base_table->name()) {
           update_field_idx.push_back(i);
-          break;
         }
         i++;
       }
@@ -41,7 +40,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
     // 选择更新的表
     if (table_->is_view()) {
       if (tuple->cell_num() != tuple->rid_list_.size()) {
-        LOG_PANIC("update view: cell num is not equal to rid num");
+        LOG_PANIC("update view: cell num %d is not equal to rid num %d", tuple->cell_num(), tuple->rid_list_.size());
         return RC::INTERNAL;
       }
       for (size_t i = 0; i < tuple->rid_list_.size(); i++) {
