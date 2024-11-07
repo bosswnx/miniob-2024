@@ -40,8 +40,12 @@ public:
   const Value *values() const { return values_; }
   int          value_amount() const { return value_amount_; }
 
+  void set_attrs_name(const std::vector<std::string> &attrs_name) { attrs_name_ = attrs_name; }
+  const std::vector<std::string> &attrs_name() const { return attrs_name_; }
+
 private:
   Table       *table_        = nullptr;
   const Value *values_       = nullptr;
   int          value_amount_ = 0;
+  std::vector<std::string> attrs_name_;
 };

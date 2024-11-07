@@ -35,7 +35,10 @@ public:
   const std::vector<Value> &values() const { return values_; }
   std::vector<Value>       &values() { return values_; }
 
+  void set_attrs_name(const std::vector<std::string> &attrs_name) { attrs_name_ = attrs_name; }
+  const std::vector<std::string> &attrs_name() const { return attrs_name_; }
 private:
   Table             *table_ = nullptr;
   std::vector<Value> values_;
+  std::vector<std::string> attrs_name_;
 };

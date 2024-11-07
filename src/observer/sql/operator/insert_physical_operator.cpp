@@ -52,6 +52,17 @@ RC InsertPhysicalOperator::open(Trx *trx)
           } else {
             view_field_name = view->find_base_table_field_name(view_field.name());
           }
+
+
+          // 检查这个视图当中的 field_name 在不在 insert 用户指定的 attrs_name 里面
+          if (!attrs_name_.empty()) {
+            if (find(attrs_name_.begin(), attrs_name_.end(), view_field.name()) == attrs_name_.end()) {
+              // 如果不在 attrs_name 里面，就不用插入了
+              continue;
+            }
+          }
+
+
           if (strcmp(field.name(), view_field_name.c_str()) == 0) {
             // 如果找到一个视图的 field 和 base table 的 field 名字相同
             found = true;
@@ -89,6 +100,7 @@ RC InsertPhysicalOperator::open(Trx *trx)
         return rc;
       }
     }
+
   } else {
     rc = table_->make_record(static_cast<int>(values_.size()), values_.data(), record);
     if (rc != RC::SUCCESS) {

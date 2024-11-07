@@ -339,6 +339,7 @@ RC PhysicalPlanGenerator::create_plan(InsertLogicalOperator &insert_oper, unique
   Table                  *table           = insert_oper.table();
   vector<Value>          &values          = insert_oper.values();
   InsertPhysicalOperator *insert_phy_oper = new InsertPhysicalOperator(table, std::move(values));
+  insert_phy_oper->set_attrs_name(insert_oper.attrs_name());
   oper.reset(insert_phy_oper);
   return RC::SUCCESS;
 }
