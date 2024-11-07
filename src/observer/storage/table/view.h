@@ -51,6 +51,13 @@ class View : public Table {
     }
     return "";
   }
+
+  std::string find_base_table_field_name(const std::string &attr_name) {
+    if (attr_name_2_base_table_field_name.find(attr_name) != attr_name_2_base_table_field_name.end()) {
+      return attr_name_2_base_table_field_name[attr_name];
+    }
+    return "";
+  }
   
  private:
   std::string view_name_;
@@ -66,4 +73,7 @@ class View : public Table {
 
   // 维护某个视图的普通字段（不包括聚合等不普通的）属于哪个表
   std::unordered_map<std::string, std::string> field_base_table_name;
+
+  // 维护视图的字段名和基表的字段名的映射关系
+  std::unordered_map<std::string, std::string> attr_name_2_base_table_field_name;
 };

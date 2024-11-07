@@ -41,7 +41,10 @@ void View::init_table_meta(const vector<FieldMeta> &fields) {
         // field name 不可能重复
         if (attrs_name_.empty()) { 
             field_base_table_name[field.name()] = field.table_name_;
-        } else field_base_table_name[attrs_name_[idx]] = field.table_name_;
+        } else {
+            attr_name_2_base_table_field_name[attrs_name_[idx]] = field.name();
+            field_base_table_name[attrs_name_[idx]] = field.table_name_;
+        }
 
         idx += 1;
     }

@@ -43,10 +43,16 @@ RC InsertPhysicalOperator::open(Trx *trx)
         bool found = false;
         Value value;
         size_t idx = 0;
+        string view_field_name;
         for (auto &view_field : *view->table_meta().field_metas()) {
           // 遍历视图的所有 field
           // if (field.name() == view_field.name()) { // 犯错误了
-          if (strcmp(field.name(), view_field.name()) == 0) {
+          if (view->attrs_name().empty()) {
+            view_field_name = view_field.name();
+          } else {
+            view_field_name = view->find_base_table_field_name(view_field.name());
+          }
+          if (strcmp(field.name(), view_field_name.c_str()) == 0) {
             // 如果找到一个视图的 field 和 base table 的 field 名字相同
             found = true;
             value = values_[idx];

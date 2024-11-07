@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/select_stmt.h"
+#include <cstddef>
 
 bool check_is_updatable(SelectStmt *select_stmt) {
     // 检查是否有聚合函数, 算数表达式
@@ -50,6 +51,16 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
   if (query_fields.size() != create_view.attrs_name.size()) {
     LOG_WARN("select query expr num count doesn't match attr count");
     return RC::INVALID_ARGUMENT;
+  }
+
+  // 检查是否有重复的字段名
+  unordered_map<string, std::nullptr_t> attr_name_map;
+  for (auto &attr_name : create_view.attrs_name) {
+    if (attr_name_map.find(attr_name) != attr_name_map.end()) {
+      LOG_WARN("duplicate column name in view definition");
+      return RC::INVALID_ARGUMENT;
+    }
+    attr_name_map[attr_name] = nullptr;
   }
 
   stmt = new CreateViewStmt(create_view.view_name, create_view.attrs_name);
