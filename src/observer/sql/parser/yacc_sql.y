@@ -111,7 +111,6 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         EXISTS
         NOT_EXISTS
         LOAD
-        DATA
         ORDER
         ASC
         INFILE
@@ -218,7 +217,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <sql_node>            begin_stmt
 %type <sql_node>            commit_stmt
 %type <sql_node>            rollback_stmt
-%type <sql_node>            load_data_stmt
+// %type <sql_node>            load_data_stmt
 %type <sql_node>            explain_stmt
 %type <sql_node>            set_variable_stmt
 %type <sql_node>            help_stmt
@@ -258,7 +257,7 @@ command_wrapper:
   | begin_stmt
   | commit_stmt
   | rollback_stmt
-  | load_data_stmt
+  // | load_data_stmt
   | explain_stmt
   | set_variable_stmt
   | help_stmt
@@ -1158,6 +1157,7 @@ limit:
     }
     ;
 
+/*
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 
     {
@@ -1170,6 +1170,7 @@ load_data_stmt:
       free(tmp_file_name);
     }
     ;
+*/
 
 explain_stmt:
     EXPLAIN command_wrapper
