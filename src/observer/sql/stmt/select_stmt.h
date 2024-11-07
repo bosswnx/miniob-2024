@@ -61,6 +61,7 @@ public:
 
   std::vector<std::unique_ptr<Expression>> query_expressions_;
   std::vector<Table *>                     tables_;
+  std::vector<std::string>                 table_alias_;
   FilterStmt                              *filter_stmt_ = nullptr;
   std::vector<std::unique_ptr<Expression>> group_by_;
   FilterStmt                              *filter_stmt_having_ = nullptr;

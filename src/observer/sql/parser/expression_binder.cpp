@@ -247,6 +247,7 @@ RC ExpressionBinder::bind_unbound_field_expression(
     FieldExpr *field_expr = new FieldExpr(field);
     field_expr->set_alias(alias);
     field_expr->set_name(field_name);
+    field_expr->set_table_alias(unbound_field_expr->table_alias());
     bound_expressions.emplace_back(field_expr);
   }
 

@@ -168,6 +168,8 @@ public:
   RID  raw_rid() const { return rid_; }
   const std::string &raw_table_name() const { return table_name_; }
 
+  std::string table_alias_;
+
 protected:
   RID rid_;
   std::string table_name_;
@@ -324,7 +326,15 @@ public:
   {
     const char *table_name = spec.table_name();
     const char *field_name = spec.field_name();
+    
     if (0 != strcmp(table_name, table_->name())) {
+      return RC::NOTFOUND;
+    }
+
+    // todo: alias 也要相同
+    auto spec_table_alias = spec.table_alias();
+    auto table_alias = table_alias_;
+    if (!spec_table_alias.empty() && !table_alias.empty() && table_alias != spec_table_alias) {
       return RC::NOTFOUND;
     }
 

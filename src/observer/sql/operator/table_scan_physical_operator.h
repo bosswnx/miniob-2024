@@ -47,6 +47,9 @@ public:
 
   bool is_or_conjunction = false;
 
+  void set_table_alias(const std::string &table_alias) { table_alias_ = table_alias; }
+  const std::string &table_alias() const { return table_alias_; }
+
 private:
   RC filter(Tuple &tuple, bool &result);
 
@@ -61,4 +64,6 @@ private:
   // view 会用到这个
   std::vector<std::unique_ptr<Expression>> predicates_;  // TODO chang predicate to table tuple filter
   RecordPhysicalOperatorScanner            record_scanner_view_;
+
+  std::string table_alias_;
 };

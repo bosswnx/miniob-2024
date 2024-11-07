@@ -64,7 +64,11 @@ bool UnboundFieldExpr::equal(const Expression &other) const
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value, Trx *trx) const
 {
-  return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
+  auto spec = TupleCellSpec(table_name(), field_name());
+  if (!table_alias_std_string().empty()) {
+    spec.set_table_alias(table_alias_std_string());
+  }
+  return tuple.find_cell(spec, value);
 }
 
 bool FieldExpr::equal(const Expression &other) const
