@@ -48,7 +48,7 @@ RC CreateViewStmt::create(Db *db, CreateViewSqlNode &create_view, Stmt *&stmt) {
 
   auto query_fields = select_stmt->get_query_fields();
 
-  if (query_fields.size() != create_view.attrs_name.size()) {
+  if (create_view.attrs_name.size() != 0 && query_fields.size() != create_view.attrs_name.size()) {
     LOG_WARN("select query expr num count doesn't match attr count");
     return RC::INVALID_ARGUMENT;
   }
