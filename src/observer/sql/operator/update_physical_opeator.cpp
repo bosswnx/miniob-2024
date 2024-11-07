@@ -20,14 +20,14 @@ RC UpdatePhysicalOperator::open(Trx *trx)
       base_table_map[base_table->name()] = base_table;
 
       vector<size_t> update_field_idx;
+      size_t i = 0;
       for (const auto &field_meta : field_metas_) { // UPDATE 中更新的字段
-        auto field_name = field_meta.name();
-        for (size_t j = 0; j < base_table->table_meta().field_num(); j++) {
-          if (strcmp(base_table->table_meta().field(j)->name(), field_name) == 0) {
-            update_field_idx.push_back(j);
-            break;
-          }
+        auto table_name_in_view = view->find_base_table_name(field_meta.name());
+        if (table_name_in_view == base_table->name()) {
+          update_field_idx.push_back(i);
+          break;
         }
+        i++;
       }
       selected_update_field_idx_[base_table->name()] = update_field_idx;
     }

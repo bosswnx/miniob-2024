@@ -43,6 +43,8 @@ public:
     field_id_    = field.field_id_;
     nullable_    = field.nullable_;
     vector_dim_  = field.vector_dim_;
+    
+    table_name_  = field.table_name_;
   }
 
   RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id,
@@ -64,6 +66,9 @@ public:
 public:
   void      to_json(Json::Value &json_value) const;
   static RC from_json(const Json::Value &json_value, FieldMeta &field);
+
+  // view 中，需要识别到某个 Field 属于哪个表
+  std::string table_name_;
 
 protected:
   string   name_;

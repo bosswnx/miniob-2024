@@ -25,12 +25,6 @@ bool check_is_updatable(SelectStmt *select_stmt) {
     if (select_stmt->has_special_queries()) {
         return false;
     }
-
-    // 检查是否有 join
-    if (select_stmt->has_join()) {
-        return false;
-    }
-
     return true;
 }
 

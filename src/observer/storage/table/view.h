@@ -42,6 +42,14 @@ class View : public Table {
   
   const std::vector<Table *> &base_tables() const { return base_tables_; }
 
+  // std::unordered_map<std::string, std::string> &field_base_table_name_map() { return field_base_table_name; }
+  std::string find_base_table_name(const std::string &field_name) {
+    if (field_base_table_name.find(field_name) != field_base_table_name.end()) {
+      return field_base_table_name[field_name];
+    }
+    return "";
+  }
+  
  private:
   std::string view_name_;
   std::string view_definition_;
@@ -52,4 +60,7 @@ class View : public Table {
 
   // base table
   std::vector<Table *> base_tables_;
+
+  // 维护某个视图的普通字段（不包括聚合等不普通的）属于哪个表
+  std::unordered_map<std::string, std::string> field_base_table_name;
 };

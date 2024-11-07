@@ -77,6 +77,8 @@ public:
         // 此时已经将所有的 UnboundFieldExpr 转换为 FieldExpr
         auto field_expr = static_cast<FieldExpr *>(expr.get());
         FieldMeta field_meta(*field_expr->field().meta());
+        // field_meta.table_name_ = *field_expr.table_name(); // 犯错误了
+        field_meta.table_name_ = (*field_expr).table_name(); // 记录表名
         query_fields.push_back(field_meta);
       } else {
         FieldMeta field_meta;

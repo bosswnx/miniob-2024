@@ -33,6 +33,9 @@ void View::init_table_meta(const vector<FieldMeta> &fields) {
             attr_info.arr_len = 1;
         }
         attr_infos.push_back(attr_info);
+
+        // field name 不可能重复
+        field_base_table_name[field.name()] = field.table_name_;
     }
     table_meta_.init(view_id_, view_name_.c_str(), nullptr, attr_infos, StorageFormat::ROW_FORMAT);
 }
