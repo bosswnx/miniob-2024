@@ -345,6 +345,7 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
         }
         FieldExpr* left_expr;
         ValueExpr* right_expr;
+        // 只支持向量距离函数中，一边是列一边是值的情况
         if (order_by_expr->left()->type() == ExprType::FIELD && order_by_expr->right()->type() == ExprType::VALUE &&
             order_by_expr->right()->value_type() == AttrType::VECTORS) {
            left_expr   = static_cast<FieldExpr *>(order_by_expr->left().get());
@@ -362,7 +363,7 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
             Table       *table          = table_get_oper->table();
             VectorIndex *vector_index   = table->find_vector_index_by_fields(left_expr->field_name());
             // 检查查询的距离类型和向量索引的距离类型是否相同
-            if (distance_type == vector_index->meta().distance_type()) {
+            if (vector_index != nullptr && distance_type == vector_index->meta().distance_type()) {
               child_phy_oper = std::make_unique<VectorIndexScanPhysicalOperator>(table, vector_index, right_value, limit);
             }
           }

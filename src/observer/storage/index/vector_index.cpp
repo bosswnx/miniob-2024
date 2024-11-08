@@ -47,6 +47,7 @@ VectorIndex::~VectorIndex()
     }
     default: ASSERT(false, "not implemented");
   }
+  munmap(rid_map_start, sizeof(RID) * item_count_);
 }
 
 void VectorIndex::add_item(RID rid, const float *vector)
@@ -74,6 +75,10 @@ void VectorIndex::add_item(RID rid, const float *vector)
 
 RC VectorIndex::build_and_save()
 {
+  // 没有数据时，也能建立索引，但无法查询出数据
+  if (item_count_ == 0) {
+    return RC::SUCCESS;
+  }
   aux_file_.close();
   switch (distance_type_) {
     case DistanceType::L2_DISTANCE: {
@@ -135,6 +140,9 @@ RC VectorIndex::build_and_save()
 
 void VectorIndex::query(const float *w, size_t n, std::vector<RID> &result, std::vector<float> &distance)
 {
+  if (item_count_ == 0) {
+    return;
+  }
   std::vector<int> result_internal;
   switch (distance_type_) {
     case DistanceType::L2_DISTANCE: {
