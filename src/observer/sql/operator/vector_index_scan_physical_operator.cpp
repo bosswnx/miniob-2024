@@ -60,5 +60,5 @@ Tuple *VectorIndexScanPhysicalOperator::current_tuple()
 
 std::string VectorIndexScanPhysicalOperator::param() const
 {
-  return std::string("VECTOR_INDEX_SCAN( ") + vector_index_->meta().name() + " ON " + table_->name() + ")";
+  return vector_index_->meta().name() + " ON " + table_->name();
 }
