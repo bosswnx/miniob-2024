@@ -32,6 +32,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 #include "storage/table/table.h"
 #include "storage/table/vector_data_manager.h"
+#include "storage/index/vector_index_meta.h"
+#include "storage/index/vector_index.h"
 #include "storage/trx/trx.h"
 #include "sql/expr/tuple.h"
 
@@ -723,4 +725,106 @@ RC Table::update_vector(const VectorData *old_vector_data, const VectorData *new
 {
   ASSERT(vector_data_manager_ != nullptr, "table %s has no vector attribute", this->name());
   return vector_data_manager_->update_vector(old_vector_data, new_vector_data);
+}
+
+RC Table::create_vector_index(Trx *trx, const FieldMeta *field_meta, const std::string &vector_index_name,
+    DistanceType distance_type, size_t lists, size_t probes)
+{
+  VectorIndexMeta new_vector_index_meta;
+  RC              rc = new_vector_index_meta.init(vector_index_name, *field_meta, distance_type, lists, probes);
+  if (OB_FAIL(rc)) {
+    LOG_ERROR("Failed to create vector index. rc=%d:%s", rc, strrc(rc));
+    return rc;
+  }
+  std::string vector_index_file = table_vector_index_file(base_dir_.c_str(), name(), vector_index_name.c_str());
+  auto        vector_index =
+      new VectorIndex(new_vector_index_meta, field_meta->vector_dim(), distance_type, lists, probes, vector_index_file);
+  RecordFileScanner scanner;
+  rc = get_record_scanner(scanner, trx, ReadWriteMode::READ_ONLY);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to create scanner while creating vector index. table=%s, index=%s, rc=%s",
+         name(), vector_index_name, strrc(rc));
+    return rc;
+  }
+  Record   record;
+  RowTuple tuple;
+  tuple.set_schema(this, table_meta_.field_metas());
+  while (OB_SUCC(rc = scanner.next(record))) {
+    tuple.set_record(&record);
+    Value cell;
+    tuple.cell_at(field_meta->field_id(), cell);
+    vector_index->add_item(record.rid(), cell.get_vector().vector);
+  }
+  if (RC::RECORD_EOF == rc) {
+    rc = RC::SUCCESS;
+  } else {
+    LOG_WARN("failed to insert record into index while creating index. table=%s, index=%s, rc=%s",
+             name(), vector_index_name, strrc(rc));
+    return rc;
+  }
+  scanner.close_scan();
+  vector_index->build_and_save();
+  vector_indexes_.push_back(vector_index);
+
+  /// 接下来将这个索引放到表的元数据中
+  TableMeta new_table_meta(table_meta_);
+  rc = new_table_meta.add_vector_index(new_vector_index_meta);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to add vector index (%s) on table (%s). error=%d:%s", vector_index_name, name(), rc, strrc(rc));
+    return rc;
+  }
+
+  /// 内存中有一份元数据，磁盘文件也有一份元数据。修改磁盘文件时，先创建一个临时文件，写入完成后再rename为正式文件
+  /// 这样可以防止文件内容不完整
+  // 创建元数据临时文件
+  string  tmp_file = table_meta_file(base_dir_.c_str(), name()) + ".tmp";
+  fstream fs;
+  fs.open(tmp_file, ios_base::out | ios_base::binary | ios_base::trunc);
+  if (!fs.is_open()) {
+    LOG_ERROR("Failed to open file for write. file name=%s, errmsg=%s", tmp_file.c_str(), strerror(errno));
+    return RC::IOERR_OPEN;  // 创建索引中途出错，要做还原操作
+  }
+  if (new_table_meta.serialize(fs) < 0) {
+    LOG_ERROR("Failed to dump new table meta to file: %s. sys err=%d:%s", tmp_file.c_str(), errno, strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+  fs.close();
+
+  // 覆盖原始元数据文件
+  string meta_file = table_meta_file(base_dir_.c_str(), name());
+
+  int ret = rename(tmp_file.c_str(), meta_file.c_str());
+  if (ret != 0) {
+    LOG_ERROR("Failed to rename tmp meta file (%s) to normal meta file (%s) while creating vector index (%s) on table (%s). "
+              "system error=%d:%s",
+              tmp_file.c_str(), meta_file.c_str(), vector_index_name, name(), errno, strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+
+  table_meta_.swap(new_table_meta);
+
+  LOG_INFO("Successfully added a new vector index (%s) on the table (%s)", vector_index_name.c_str(), name());
+  return RC::SUCCESS;
+}
+
+VectorIndex *Table::find_vector_index(const char *index_name) const
+{
+  for (auto index : vector_indexes_) {
+    if (index->meta().name() == index_name) {
+      return index;
+    }
+  }
+  return nullptr;
+}
+
+// 根据字段名找到对应的索引，目前仅支持完全匹配的等值查找
+VectorIndex *Table::find_vector_index_by_fields(const char *field_names) const
+{
+  const TableMeta       &table_meta        = this->table_meta();
+  const VectorIndexMeta *vector_index_meta = table_meta.find_vector_index_by_fields(field_names);
+
+  if (vector_index_meta == nullptr) {
+    return nullptr;
+  }
+  return this->find_vector_index(vector_index_meta->name().c_str());
 }

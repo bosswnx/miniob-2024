@@ -47,6 +47,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/optimizer/physical_plan_generator.h"
 #include "sql/operator/order_by_logical_operator.h"
 #include "sql/operator/order_by_physical_operator.h"
+#include "sql/operator/vector_index_scan_physical_operator.h"
 using namespace std;
 
 RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<PhysicalOperator> &oper)
@@ -311,8 +312,57 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
 
   unique_ptr<PhysicalOperator> child_phy_oper;
 
+  {
+    // 将orderby + limit 转化为向量索引查询计划
+    // condition: limit, order by
+    int limit = project_oper.limit();
+    if (limit != -1 && child_opers.size() == 1 && child_opers[0]->type() == LogicalOperatorType::ORDER_BY) {
+      const auto order_by_oper = static_cast<OrderByLogicalOperator *>(child_opers[0].get());
+      const std::vector<std::unique_ptr<LogicalOperator>> &order_by_children = order_by_oper->children();
+      const std::vector<std::unique_ptr<Expression>>      &order_by_exprs    = order_by_oper->expressions();
+      // condition: order by L2_Distance(列，向量字面量)
+      if (order_by_exprs.size() == 1 && order_by_exprs[0]->type() == ExprType::VECTOR_DISTANCE_EXPR) {
+        const auto   order_by_expr = static_cast<VectorDistanceExpr *>(order_by_exprs[0].get());
+        DistanceType distance_type;
+        switch (order_by_expr->distance_type()) {
+          case VectorDistanceExpr::Type::COSINE_DISTANCE: {
+            distance_type = DistanceType::COSINE_DISTANCE;
+            break;
+          }
+          case VectorDistanceExpr::Type::L2_DISTANCE: {
+            distance_type = DistanceType::L2_DISTANCE;
+            break;
+          }
+          case VectorDistanceExpr::Type::INNER_PRODUCT: {
+            distance_type = DistanceType::INNER_PRODUCT;
+            break;
+          }
+          default: {
+            LOG_WARN("unsupported distance type: %d", static_cast<int>(order_by_expr->distance_type()));
+            return RC::INTERNAL;
+          };
+        }
+        if (order_by_expr->left()->type() == ExprType::FIELD && order_by_expr->right()->type() == ExprType::VALUE &&
+            order_by_expr->right()->value_type() == AttrType::VECTORS) {
+          const auto left_expr   = static_cast<FieldExpr *>(order_by_expr->left().get());
+          const auto right_expr  = static_cast<ValueExpr *>(order_by_expr->right().get());
+          Value      right_value = right_expr->get_value();
+          if (order_by_children.size() == 1 && order_by_children[0]->type() == LogicalOperatorType::TABLE_GET) {
+            const auto   table_get_oper = static_cast<TableGetLogicalOperator *>(order_by_children[0].get());
+            Table       *table          = table_get_oper->table();
+            VectorIndex *vector_index   = table->find_vector_index_by_fields(left_expr->field_name());
+            // 检查查询的距离类型和向量索引的距离类型是否相同
+            if (distance_type == vector_index->meta().distance_type()) {
+              child_phy_oper = std::make_unique<VectorIndexScanPhysicalOperator>(table, vector_index, right_value);
+            }
+          }
+        }
+      }
+    }
+  }
+
   RC rc = RC::SUCCESS;
-  if (!child_opers.empty()) {
+  if (!child_opers.empty() && child_phy_oper == nullptr) {
     LogicalOperator *child_oper = child_opers.front().get();
 
     rc = create(*child_oper, child_phy_oper);

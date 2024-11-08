@@ -522,6 +522,7 @@ public:
   VectorDistanceExpr(Type type, Expression *left, Expression *right);
   VectorDistanceExpr(Type type, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   ExprType                     type() const override;
+  Type                         distance_type() const;
   AttrType                     value_type() const override;
   int                          value_length() const override;
   RC                           get_value(const Tuple &tuple, Value &value, Trx *trx = nullptr) const override;

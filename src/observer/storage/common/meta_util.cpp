@@ -47,3 +47,8 @@ string table_vector_data_file(const char *base_dir, const char *table_name)
 {
   return filesystem::path(base_dir) / (string(table_name) + TABLE_VECTOR_DATA_SUFFIX);
 }
+
+string table_vector_index_file(const char *base_dir, const char *table_name, const char *vector_index_name)
+{
+  return filesystem::path(base_dir) / (string(table_name) + "-" + vector_index_name + TABLE_VECTOR_INDEX_SUFFIX);
+}

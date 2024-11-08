@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/types.h"
 #include "common/lang/span.h"
 #include "common/lang/functional.h"
+#include "storage/index/vector_index.h"
 
 struct RID;
 class Record;
@@ -29,6 +30,7 @@ class ChunkFileScanner;
 class ConditionFilter;
 class DefaultConditionFilter;
 class Index;
+class VectorIndex;
 class IndexScanner;
 class RecordDeleter;
 class Trx;
@@ -91,6 +93,9 @@ public:
   // TODO refactor
   RC create_index(Trx *trx, const std::vector<const FieldMeta *> &field_metas, const char *index_name, bool is_unique);
 
+  RC create_vector_index(Trx *trx, const FieldMeta *field_meta, const std::string &vector_index_name,
+      DistanceType distance_type, size_t lists, size_t probes);
+
   RC get_record_scanner(RecordFileScanner &scanner, Trx *trx, ReadWriteMode mode);
 
   RC get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode);
@@ -128,6 +133,9 @@ public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_fields(const std::vector<const char *> &field_names) const;
 
+  VectorIndex *find_vector_index(const char *index_name) const;
+  VectorIndex *find_vector_index_by_fields(const char *field_names) const;
+
   std::string text_data_file() const;
   std::string vector_data_file() const;
 
@@ -149,6 +157,7 @@ private:
   DiskBufferPool    *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
   RecordFileHandler *record_handler_   = nullptr;  /// 记录操作
   vector<Index *>    indexes_;
+  std::vector<VectorIndex *> vector_indexes_;
 
   std::unique_ptr<VectorDataManager> vector_data_manager_;
 

@@ -34,6 +34,8 @@ RC SetVariableExecutor::execute(SQLStageEvent *sql_event)
       } else {
         rc = RC::INVALID_ARGUMENT;
       }
+    } else if (strcasecmp(var_name, "NAMES") == 0) {
+      // nop
     } else {
       rc = RC::VARIABLE_NOT_EXISTS;
     }
