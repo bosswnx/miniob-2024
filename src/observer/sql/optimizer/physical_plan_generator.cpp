@@ -312,7 +312,7 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
 
   unique_ptr<PhysicalOperator> child_phy_oper;
 
-  {
+  do {
     // 将orderby + limit 转化为向量索引查询计划
     // condition: limit, order by
     int limit = project_oper.limit();
@@ -324,6 +324,7 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
       if (order_by_exprs.size() == 1 && order_by_exprs[0]->type() == ExprType::VECTOR_DISTANCE_EXPR) {
         const auto   order_by_expr = static_cast<VectorDistanceExpr *>(order_by_exprs[0].get());
         DistanceType distance_type;
+        // 两个枚举类重复了，以下是非常糟糕的做法
         switch (order_by_expr->distance_type()) {
           case VectorDistanceExpr::Type::COSINE_DISTANCE: {
             distance_type = DistanceType::COSINE_DISTANCE;
@@ -342,10 +343,19 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
             return RC::INTERNAL;
           };
         }
+        FieldExpr* left_expr;
+        ValueExpr* right_expr;
         if (order_by_expr->left()->type() == ExprType::FIELD && order_by_expr->right()->type() == ExprType::VALUE &&
             order_by_expr->right()->value_type() == AttrType::VECTORS) {
-          const auto left_expr   = static_cast<FieldExpr *>(order_by_expr->left().get());
-          const auto right_expr  = static_cast<ValueExpr *>(order_by_expr->right().get());
+           left_expr   = static_cast<FieldExpr *>(order_by_expr->left().get());
+           right_expr  = static_cast<ValueExpr *>(order_by_expr->right().get());
+            }else if (order_by_expr->right()->type() == ExprType::FIELD && order_by_expr->left()->type() == ExprType::VALUE &&
+                order_by_expr->left()->value_type() == AttrType::VECTORS) {
+               left_expr   = static_cast<FieldExpr *>(order_by_expr->right().get());
+               right_expr  = static_cast<ValueExpr *>(order_by_expr->left().get());
+            }else {
+              break;
+            }
           Value      right_value = right_expr->get_value();
           if (order_by_children.size() == 1 && order_by_children[0]->type() == LogicalOperatorType::TABLE_GET) {
             const auto   table_get_oper = static_cast<TableGetLogicalOperator *>(order_by_children[0].get());
@@ -356,10 +366,9 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
               child_phy_oper = std::make_unique<VectorIndexScanPhysicalOperator>(table, vector_index, right_value);
             }
           }
-        }
       }
     }
-  }
+  } while (false);
 
   RC rc = RC::SUCCESS;
   if (!child_opers.empty() && child_phy_oper == nullptr) {
