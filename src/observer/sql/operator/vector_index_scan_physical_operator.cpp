@@ -48,7 +48,6 @@ RC VectorIndexScanPhysicalOperator::next()
 
 RC VectorIndexScanPhysicalOperator::close()
 {
-  record_handler_->close();
   return RC::SUCCESS;
 }
 
