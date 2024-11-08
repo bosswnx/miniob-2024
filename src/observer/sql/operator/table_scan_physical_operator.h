@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/rc.h"
 #include "sql/operator/physical_operator.h"
 #include "storage/record/record_manager.h"
+#include "storage/record/phy_op_record_scanner.h"
 #include "common/types.h"
 
 class Table;
@@ -46,8 +47,11 @@ public:
 
   bool is_or_conjunction = false;
 
+  void set_table_alias(const std::string &table_alias) { table_alias_ = table_alias; }
+  const std::string &table_alias() const { return table_alias_; }
+
 private:
-  RC filter(RowTuple &tuple, bool &result);
+  RC filter(Tuple &tuple, bool &result);
 
 private:
   Table                                   *table_ = nullptr;
@@ -56,5 +60,10 @@ private:
   RecordFileScanner                        record_scanner_;
   Record                                   current_record_;
   RowTuple                                 tuple_;
+
+  // view 会用到这个
   std::vector<std::unique_ptr<Expression>> predicates_;  // TODO chang predicate to table tuple filter
+  RecordPhysicalOperatorScanner            record_scanner_view_;
+
+  std::string table_alias_;
 };

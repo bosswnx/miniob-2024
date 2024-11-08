@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
 #include "net/communicator.h"
 #include "net/server.h"
 #include "session/session.h"
+#include "storage/db/db.h"
 
 using namespace common;
 
@@ -91,6 +92,26 @@ RC SessionStage::handle_sql(SQLStageEvent *sql_event)
   if (OB_FAIL(rc)) {
     LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
     return rc;
+  }
+
+  // check views
+  // 逻辑暂时放在这里，做可行性验证
+  if (sql_event->sql_node()->flag == SCF_SELECT) {
+    auto *db = sql_event->session_event()->session()->get_current_db();
+    if (db == nullptr) return RC::INTERNAL;
+    for (auto &relation : sql_event->sql_node()->selection.relations) {
+      View *view = db->find_view(relation.name.c_str());
+      if (view == nullptr) continue;
+      sql_event->add_view_sql(view->view_definition());
+      sql_event->add_view_name(view->view_name());
+    }
+    // ... cache stage
+    // 解析 View 的 SQL
+    rc = parse_stage_.handle_view_request(sql_event);
+    if (OB_FAIL(rc)) {
+      LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
+      return rc;
+    }
   }
 
   // 生成执行计划 stmt

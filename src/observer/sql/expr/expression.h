@@ -139,6 +139,10 @@ public:
   const char *alias() const { return alias_.c_str(); }
   const std::string alias_std_string() const { return alias_; }
 
+  void set_table_alias(const std::string &table_alias) { table_alias_ = table_alias; }
+  const char *table_alias() const { return table_alias_.c_str(); }
+  const std::string table_alias_std_string() const { return table_alias_; }
+
 protected:
   /**
    * @brief 表达式在下层算子返回的 chunk 中的位置
@@ -152,6 +156,8 @@ private:
   std::string name_;
   
   std::string alias_;
+
+  std::string table_alias_;
 };
 
 class StarExpr : public Expression

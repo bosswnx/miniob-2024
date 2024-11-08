@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/order_by_logical_operator.h"
 #include "sql/stmt/create_table_stmt.h"
 #include "sql/stmt/calc_stmt.h"
+#include "sql/stmt/create_view_stmt.h"
 #include "sql/stmt/delete_stmt.h"
 #include "sql/stmt/explain_stmt.h"
 #include "sql/stmt/filter_stmt.h"
@@ -94,6 +95,16 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
       }
       return RC::UNIMPLEMENTED;
     } break;
+
+    case StmtType::CREATE_VIEW: {
+      auto *create_view_stmt = static_cast<CreateViewStmt *>(stmt);
+      if (create_view_stmt->select_stmt() != nullptr) {
+        // create view xx as select ...
+        auto stmt_ = create_view_stmt->select_stmt();
+        return create_plan(stmt_, logical_operator);
+      }
+      return RC::UNIMPLEMENTED;
+    } break;
     default: {
       rc = RC::UNIMPLEMENTED;
     }
@@ -115,9 +126,13 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   last_oper = &table_oper;
 
   const std::vector<Table *> &tables = select_stmt->tables();
-  for (Table *table : tables) {
+  const std::vector<std::string> &table_alias = select_stmt->table_alias_;
 
-    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY));
+  size_t i = 0;
+  for (Table *table : tables) {
+    auto table_get_oper_ = new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY);
+    table_get_oper_->set_table_alias(table_alias[i]);
+    unique_ptr<LogicalOperator> table_get_oper(table_get_oper_);
     if (table_oper == nullptr) {
       table_oper = std::move(table_get_oper);
     } else {
@@ -126,6 +141,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
       join_oper->add_child(std::move(table_get_oper));
       table_oper = unique_ptr<LogicalOperator>(join_oper);
     }
+    i++;
   }
 
   unique_ptr<LogicalOperator> predicate_oper;
@@ -324,6 +340,7 @@ RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<Logical
   vector<Value> values(insert_stmt->values(), insert_stmt->values() + insert_stmt->value_amount());
 
   auto *insert_operator = new InsertLogicalOperator(table, values);
+  insert_operator->set_attrs_name(insert_stmt->attrs_name());
   logical_operator.reset(insert_operator);
   return RC::SUCCESS;
 }

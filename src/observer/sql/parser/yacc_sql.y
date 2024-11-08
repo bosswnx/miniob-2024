@@ -71,6 +71,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         GROUP
         TABLE
         TABLES
+        VIEW
         INDEX
         UNIQUE
         CALC
@@ -110,7 +111,6 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         EXISTS
         NOT_EXISTS
         LOAD
-        DATA
         ORDER
         ASC
         INFILE
@@ -210,13 +210,14 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <sql_node>            drop_table_stmt
 %type <sql_node>            show_tables_stmt
 %type <sql_node>            desc_table_stmt
+%type <sql_node>            create_view_stmt
 %type <sql_node>            create_index_stmt
 %type <sql_node>            drop_index_stmt
 %type <sql_node>            sync_stmt
 %type <sql_node>            begin_stmt
 %type <sql_node>            commit_stmt
 %type <sql_node>            rollback_stmt
-%type <sql_node>            load_data_stmt
+// %type <sql_node>            load_data_stmt
 %type <sql_node>            explain_stmt
 %type <sql_node>            set_variable_stmt
 %type <sql_node>            help_stmt
@@ -249,13 +250,14 @@ command_wrapper:
   | drop_table_stmt
   | show_tables_stmt
   | desc_table_stmt
+  | create_view_stmt
   | create_index_stmt
   | drop_index_stmt
   | sync_stmt
   | begin_stmt
   | commit_stmt
   | rollback_stmt
-  | load_data_stmt
+  // | load_data_stmt
   | explain_stmt
   | set_variable_stmt
   | help_stmt
@@ -433,6 +435,38 @@ create_table_stmt:    /*create table 语句的语法解析树*/
     }
 
     ;
+
+create_view_stmt:
+    CREATE VIEW ID AS select_stmt
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
+      CreateViewSqlNode &create_view = $$->create_view;
+      create_view.view_name = $3;
+      free($3);
+      create_view.sub_select = $5;
+      // 得到 AS 之后的字符串
+      create_view.description = std::string(sql_string + @5.first_column, @5.last_column - @5.first_column + 1);
+    }
+    | CREATE VIEW ID LBRACE id_list RBRACE AS select_stmt
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
+      CreateViewSqlNode &create_view = $$->create_view;
+      create_view.view_name = $3;
+      free($3);
+
+      std::vector<std::string> *src_attrs = $5;
+      if (src_attrs != nullptr) {
+        create_view.attrs_name.swap(*src_attrs);
+        delete src_attrs;
+      }
+      std::reverse(create_view.attrs_name.begin(), create_view.attrs_name.end());
+      
+      create_view.sub_select = $8;
+      // 得到 AS 之后的字符串
+      create_view.description = std::string(sql_string + @8.first_column, @8.last_column - @8.first_column + 1);
+    }
+    ;
+
 attr_def_list:
     /* empty */
     {
@@ -549,6 +583,27 @@ insert_stmt:        /*insert   语句的语法解析树*/
       $$->insertion.values.emplace_back(*$6);
       std::reverse($$->insertion.values.begin(), $$->insertion.values.end());
       delete $6;
+      free($3);
+    }
+    | INSERT INTO ID LBRACE id_list RBRACE VALUES LBRACE value value_list RBRACE
+     {
+      $$ = new ParsedSqlNode(SCF_INSERT);
+      $$->insertion.relation_name = $3;
+      
+      // fields list
+      if ($5 != nullptr) {
+        $$->insertion.attrs_name.swap(*$5);
+        delete $5;
+      }
+      std::reverse($$->insertion.attrs_name.begin(), $$->insertion.attrs_name.end());
+
+      if ($10 != nullptr) {
+        $$->insertion.values.swap(*$10);
+        delete $10;
+      }
+      $$->insertion.values.emplace_back(*$9);
+      std::reverse($$->insertion.values.begin(), $$->insertion.values.end());
+      delete $9;
       free($3);
     }
     ;
@@ -1123,6 +1178,7 @@ limit:
     }
     ;
 
+/*
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 
     {
@@ -1135,6 +1191,7 @@ load_data_stmt:
       free(tmp_file_name);
     }
     ;
+*/
 
 explain_stmt:
     EXPLAIN command_wrapper

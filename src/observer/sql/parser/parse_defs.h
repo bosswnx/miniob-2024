@@ -152,6 +152,7 @@ struct CalcSqlNode
 struct InsertSqlNode
 {
   std::string        relation_name;  ///< Relation to insert into
+  std::vector<std::string> attrs_name;
   std::vector<Value> values;         ///< 要插入的值
 };
 
@@ -202,7 +203,7 @@ struct AttrInfoSqlNode
  * @ingroup SQLParser
  * @details 这里也做了很多简化。
  */
-typedef struct ParsedSqlNode SubSelectSqlNode;
+typedef class ParsedSqlNode SubSelectSqlNode;
 struct CreateTableSqlNode
 {
   std::string                  relation_name;   ///< Relation name
@@ -242,6 +243,14 @@ struct DropIndexSqlNode
 {
   std::string index_name;     ///< Index name
   std::string relation_name;  ///< Relation name
+};
+
+struct CreateViewSqlNode
+{
+  std::string view_name;
+  std::vector<std::string> attrs_name;      ///< attributes
+  SubSelectSqlNode* sub_select = nullptr;
+  std::string description;
 };
 
 /**
@@ -316,6 +325,7 @@ enum SqlCommandFlag
   SCF_DELETE,
   SCF_CREATE_TABLE,
   SCF_DROP_TABLE,
+  SCF_CREATE_VIEW,
   SCF_CREATE_INDEX,
   SCF_DROP_INDEX,
   SCF_SYNC,
@@ -349,6 +359,7 @@ public:
   DropTableSqlNode    drop_table;
   CreateIndexSqlNode  create_index;
   DropIndexSqlNode    drop_index;
+  CreateViewSqlNode   create_view;
   DescTableSqlNode    desc_table;
   LoadDataSqlNode     load_data;
   ExplainSqlNode      explain;

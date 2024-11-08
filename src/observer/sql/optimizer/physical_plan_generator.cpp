@@ -228,6 +228,7 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
     return RC::SUCCESS;
   }
   auto table_scan_oper = new TableScanPhysicalOperator(table, table_get_oper.read_write_mode());
+  table_scan_oper->set_table_alias(table_get_oper.table_alias());
   table_scan_oper->set_predicates(std::move(predicates));
   table_scan_oper->is_or_conjunction = table_get_oper.is_or_conjunction;
   oper                               = unique_ptr<PhysicalOperator>(table_scan_oper);
@@ -339,6 +340,7 @@ RC PhysicalPlanGenerator::create_plan(InsertLogicalOperator &insert_oper, unique
   Table                  *table           = insert_oper.table();
   vector<Value>          &values          = insert_oper.values();
   InsertPhysicalOperator *insert_phy_oper = new InsertPhysicalOperator(table, std::move(values));
+  insert_phy_oper->set_attrs_name(insert_oper.attrs_name());
   oper.reset(insert_phy_oper);
   return RC::SUCCESS;
 }

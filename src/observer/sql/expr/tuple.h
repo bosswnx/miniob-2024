@@ -162,6 +162,17 @@ public:
     result = 0;
     return rc;
   }
+
+  void set_rid(const RID &rid) { rid_ = rid; }
+  void set_table_name(const std::string &table_name) { table_name_ = table_name; }
+  RID  raw_rid() const { return rid_; }
+  const std::string &raw_table_name() const { return table_name_; }
+
+  std::string table_alias_;
+
+protected:
+  RID rid_;
+  std::string table_name_;
 };
 
 /**
@@ -226,6 +237,9 @@ public:
       cell.set_type(field_meta->type());
       cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     }
+
+    cell.view_set_info(raw_rid().page_num, raw_rid().slot_num, raw_table_name());
+
     return RC::SUCCESS;
   }
 
@@ -312,7 +326,15 @@ public:
   {
     const char *table_name = spec.table_name();
     const char *field_name = spec.field_name();
+    
     if (0 != strcmp(table_name, table_->name())) {
+      return RC::NOTFOUND;
+    }
+
+    // todo: alias 也要相同
+    auto spec_table_alias = spec.table_alias();
+    auto table_alias = table_alias_;
+    if (!spec_table_alias.empty() && !table_alias.empty() && table_alias != spec_table_alias) {
       return RC::NOTFOUND;
     }
 
@@ -341,6 +363,15 @@ public:
   Record &record() { return *record_; }
 
   const Record &record() const { return *record_; }
+
+public:
+  // view 多表
+  // 在多表的情况下，rowtuple 中的 cell 可能来自不同表的 tuple，他们都有自己的 rid 和 table_name
+  // 这里需要记录这种信息，用于多表下的 view 的字段update
+  // 在 tablescan 中，这三个字段会被更新。
+  std::vector<RID> rid_list_;
+  std::vector<std::string> table_name_list_;
+  // std::vector<size_t> cells_raw_info_idx_;
 
 private:
   Record                                 *record_ = nullptr;
@@ -424,6 +455,8 @@ public:
   void set_cells(const std::vector<Value> &cells) { cells_ = cells; }
 
   virtual int cell_num() const override { return static_cast<int>(cells_.size()); }
+
+  std::vector<Value> cells() const { return cells_; }
 
   virtual RC cell_at(int index, Value &cell) const override
   {

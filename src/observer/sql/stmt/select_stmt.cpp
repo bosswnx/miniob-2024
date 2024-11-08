@@ -89,6 +89,7 @@ std::shared_ptr<std::unordered_map<string, string>> field_alias2name) {
     // 如果在 alias2name 中找到了，说明是别名，需要替换为真实的表名
     std::string true_table_name = (*alias2name)[ub_field_expr->table_name()];
     LOG_DEBUG("convert alias to name: %s -> %s",ub_field_expr->table_name(), true_table_name.c_str());
+    ub_field_expr->set_table_alias(ub_field_expr->table_name());
     ub_field_expr->set_table_name(true_table_name);
   }
 
@@ -153,14 +154,17 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   }
 
   // 然后才是处理 select 语句中的 from 语句
+  std::vector<std::string> tables_alias;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].name.c_str();
+    // const char *table_alias = select_sql.relations[i].alias.c_str();
     if (nullptr == table_name) {
       LOG_WARN("invalid argument. relation name is null. index=%d", i);
       return RC::INVALID_ARGUMENT;
     }
 
     Table *table = db->find_table(table_name);
+    // table->set_table_alias(table_alias);
     if (nullptr == table) {
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
       return RC::SCHEMA_TABLE_NOT_EXIST;
@@ -168,6 +172,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
 
     binder_context.add_table(table);
     tables.push_back(table);
+    tables_alias.push_back(select_sql.relations[i].alias);
     table_map.insert({table_name, table});
 
     // 检查 alias 重复
@@ -255,6 +260,15 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
       if (select_expr->type() == ExprType::UNBOUND_AGGREGATION) {
         continue;
       }
+
+      if (select_expr->type() == ExprType::ARITHMETIC) {
+        ArithmeticExpr *arith_expr = static_cast<ArithmeticExpr *>(select_expr.get());
+        if (arith_expr->left() != nullptr && arith_expr->left()->type() == ExprType::UNBOUND_AGGREGATION && arith_expr->right() != nullptr && arith_expr->right()->type() == ExprType::UNBOUND_AGGREGATION) {
+          continue;
+        }
+      }
+
+
       bool found = false;
       for (unique_ptr<Expression> &group_by_expr : select_sql.group_by) {
         if (select_expr->equal(*group_by_expr)) {
@@ -387,6 +401,7 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt,
   auto *select_stmt = new SelectStmt();
 
   select_stmt->tables_.swap(tables);
+  select_stmt->table_alias_.swap(tables_alias);
   select_stmt->query_expressions_.swap(bound_expressions);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->group_by_.swap(group_by_expressions);

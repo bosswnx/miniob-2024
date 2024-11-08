@@ -131,8 +131,13 @@ public:
 
   bool is_outer_table() const { return is_outer_table_; }
   void set_is_outer_table(bool is_outer_table) { is_outer_table_ = is_outer_table; }
+  bool is_view() const { return view_; }
 
-private:
+protected:
+  void set_table_meta(const TableMeta &table_meta) { table_meta_ = table_meta; }
+  void set_view(bool view) { view_ = view; }
+
+protected:
   Db                *db_ = nullptr;
   string             base_dir_;
   TableMeta          table_meta_;
@@ -141,4 +146,6 @@ private:
   vector<Index *>    indexes_;
 
   bool is_outer_table_ = false; // 子查询用。判断是否是外层查询的表
+
+  bool view_ = false;
 };

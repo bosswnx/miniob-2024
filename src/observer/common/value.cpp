@@ -80,6 +80,10 @@ Value::Value(const Value &other)
       this->value_ = other.value_;
     } break;
   }
+
+  this->slot_num_ = other.slot_num_;
+  this->page_num_ = other.page_num_;
+  this->table_name_ = other.table_name_;
 }
 
 Value::Value(Value &&other)

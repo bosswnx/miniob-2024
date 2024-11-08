@@ -33,6 +33,15 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
+  // 带聚合等的 View 不可插入
+  if (table->is_view()) {
+    auto *view = static_cast<View *>(table);
+    if (!view->is_updatable()) {
+      LOG_WARN("the target table(view) of the INSERT is not updatable");
+      return RC::INVALID_ARGUMENT;
+    }
+  }
+
   TableMeta     meta = table->table_meta();
   BinderContext context;
   context.add_table(table);

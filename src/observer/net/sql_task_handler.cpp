@@ -17,6 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include "event/session_event.h"
 #include "event/sql_event.h"
 #include "session/session.h"
+#include "sql/parser/parse_defs.h"
+#include "storage/db/db.h"
 
 RC SqlTaskHandler::handle_event(Communicator *communicator)
 {
@@ -69,6 +71,46 @@ RC SqlTaskHandler::handle_sql(SQLStageEvent *sql_event)
     LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
     return rc;
   }
+
+  // check views
+  // 逻辑暂时放在这里，做可行性验证
+  if (sql_event->sql_node()->flag == SCF_SELECT || 
+    sql_event->sql_node()->flag == SCF_INSERT ||
+    sql_event->sql_node()->flag == SCF_UPDATE) {
+    auto *db = sql_event->session_event()->session()->get_current_db();
+    if (db == nullptr) return RC::INTERNAL;
+
+    std::vector<std::string> view_names;
+    switch (sql_event->sql_node()->flag)
+    {
+    case SCF_SELECT:
+      for (auto &relation : sql_event->sql_node()->selection.relations) view_names.push_back(relation.name);
+      break;
+    case SCF_INSERT:
+      view_names.push_back(sql_event->sql_node()->insertion.relation_name);
+      break;
+    case SCF_UPDATE:
+      view_names.push_back(sql_event->sql_node()->update.relation_name);
+    default:
+      break;
+    }
+
+    for (auto &view_name : view_names) {
+      View *view = db->find_view(view_name.c_str());
+      if (view == nullptr) continue;
+      sql_event->add_view_sql(view->view_definition());
+      sql_event->add_view_name(view->view_name());
+    }
+    LOG_DEBUG("found %d views in your sql", sql_event->sql_views().size());
+    // ... cache stage
+    // 解析 View 的 SQL
+    rc = parse_stage_.handle_view_request(sql_event);
+    if (OB_FAIL(rc)) {
+      LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
+      return rc;
+    }
+  }
+
 
   // 从 sqlnode 中创建 stmt
   rc = resolve_stage_.handle_request(sql_event);

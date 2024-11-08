@@ -9,22 +9,27 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by Longda on 2021/4/13.
+// Created by Soulter on 2024/11/5.
 //
 
 #pragma once
 
 #include "common/rc.h"
+#include "event/sql_event.h"
 
 class SQLStageEvent;
 
 /**
- * @brief 解析SQL语句，解析后的结果可以参考parse_defs.h
- * @ingroup SQLStage
+ * @brief 创建视图的执行器
+ * @ingroup Executor
  */
-class ParseStage
+class CreateViewExecutor
 {
 public:
-  RC handle_request(SQLStageEvent *sql_event);
-  RC handle_view_request(SQLStageEvent *sql_event);
+  CreateViewExecutor()          = default;
+  virtual ~CreateViewExecutor() = default;
+
+  RC execute(SQLStageEvent *sql_event);
+  void init_sys_view_table_attr_infos(std::vector<AttrInfoSqlNode> &attr_infos);
+  void make_view_values(std::vector<Value> &values, const std::vector<std::string> &attrs_name, const std::string &view_name, const std::string &view_definition, bool is_updatable);
 };

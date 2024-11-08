@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/memory.h"
 #include "common/type/attr_type.h"
 #include "common/type/data_type.h"
+#include "common/types.h"
 #include "type/vector_type.h"
 
 /**
@@ -300,6 +301,17 @@ public:
   bool is_date() const { return attr_type_ == AttrType::DATES; }
   bool is_null() const { return attr_type_ == AttrType::NULLS; }
 
+
+  void view_set_info(PageNum page_num, SlotNum slot_num, const string &table_name)
+  {
+    page_num_   = page_num;
+    slot_num_   = slot_num;
+    table_name_ = table_name;
+  }
+  PageNum page_num() const { return page_num_; }
+  SlotNum slot_num() const { return slot_num_; }
+  const string &table_name() const { return table_name_; }
+
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;
   int      length_    = 0;
@@ -316,4 +328,8 @@ private:
 
   /// 是否申请并占有内存, 目前对于 CHARS 和 VECTORS 和 TEXT 类型 own_data_ 为true, 其余类型 own_data_ 为false
   bool own_data_ = false;
+
+  PageNum page_num_ = -1;
+  SlotNum slot_num_ = -1;
+  std::string table_name_;
 };
