@@ -27,7 +27,6 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record.h"
 #include "storage/trx/mvcc_trx.h"
 #include "storage/common/meta_util.h"
-#include "storage/common/text_utils.h"
 
 using Bitmap = common::Bitmap;
 class Table;
@@ -224,13 +223,13 @@ public:
     if (field_meta->type() == AttrType::TEXTS) {
       TextData text_data;
       memcpy(&text_data, this->record_->data() + field_meta->offset(), field_meta->len());
-      TextUtils::load_text(table_, &text_data);
+      table_->load_text(&text_data);
       cell.set_type(AttrType::TEXTS);
       cell.set_text(text_data.str, text_data.len, true);
     } else if (field_meta->type() == AttrType::VECTORS) {
       VectorData vector_data;
       memcpy(&vector_data, this->record().data() + field_meta->offset(), field_meta->len());
-      VectorUtils::load_vector(table_, &vector_data);
+      table_->load_vector(&vector_data);
       cell.set_type(AttrType::VECTORS);
       cell.set_vector(vector_data, true);
     } else {
@@ -269,14 +268,14 @@ public:
             .len = static_cast<size_t>(cell.length()),
             .str = reinterpret_cast<const TextData *>(cell.data())->str,
         };
-        TextUtils::dump_text(table_, &text_data);
+        table_->dump_text(&text_data);
         memcpy(this->record_->data() + field_meta->offset(), &text_data, length);
       } else if (field_meta->type() == AttrType::VECTORS && !cell.is_null()) {
         VectorData vector_data = {
             .dim    = static_cast<size_t>(cell.length() / sizeof(float)),
             .vector = reinterpret_cast<const VectorData *>(cell.data())->vector,
         };
-        VectorUtils::dump_vector(table_, &vector_data);
+        table_->dump_vector(&vector_data);
         memcpy(this->record_->data() + field_meta->offset(), &vector_data, length);
       } else {
         memcpy(this->record_->data() + field_meta->offset(), cell.data(), length);
@@ -292,14 +291,14 @@ public:
             .len = static_cast<size_t>(cell.length()),
             .str = reinterpret_cast<const TextData *>(cell.data())->str,
         };
-        TextUtils::dump_text(table_, &text_data);
+        table_->dump_text(&text_data);
         memcpy(data + field_meta->offset(), &text_data, length);
       } else if (field_meta->type() == AttrType::VECTORS && !cell.is_null()) {
         VectorData vector_data = {
             .dim    = static_cast<size_t>(cell.length() / sizeof(float)),
             .vector = reinterpret_cast<const VectorData *>(cell.data())->vector,
         };
-        VectorUtils::dump_vector(table_, &vector_data);
+        table_->dump_vector(&vector_data);
         memcpy(data + field_meta->offset(), &vector_data, length);
       } else {
         memcpy(data + field_meta->offset(), cell.data(), length);

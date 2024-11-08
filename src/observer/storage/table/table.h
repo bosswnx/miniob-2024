@@ -14,10 +14,12 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "storage/table/vector_data_manager.h"
 #include "storage/table/table_meta.h"
 #include "common/types.h"
 #include "common/lang/span.h"
 #include "common/lang/functional.h"
+#include "storage/index/vector_index.h"
 
 struct RID;
 class Record;
@@ -28,6 +30,7 @@ class ChunkFileScanner;
 class ConditionFilter;
 class DefaultConditionFilter;
 class Index;
+class VectorIndex;
 class IndexScanner;
 class RecordDeleter;
 class Trx;
@@ -90,6 +93,9 @@ public:
   // TODO refactor
   RC create_index(Trx *trx, const std::vector<const FieldMeta *> &field_metas, const char *index_name, bool is_unique);
 
+  RC create_vector_index(Trx *trx, const FieldMeta *field_meta, const std::string &vector_index_name,
+      DistanceType distance_type, size_t lists, size_t probes);
+
   RC get_record_scanner(RecordFileScanner &scanner, Trx *trx, ReadWriteMode mode);
 
   RC get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode);
@@ -127,12 +133,25 @@ public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_fields(const std::vector<const char *> &field_names) const;
 
-  std::string text_vector_data_file() const;
+  VectorIndex *find_vector_index(const char *index_name) const;
+  VectorIndex *find_vector_index_by_fields(const char *field_names) const;
+
+  std::string text_data_file() const;
+  std::string vector_data_file() const;
 
   bool is_outer_table() const { return is_outer_table_; }
   void set_is_outer_table(bool is_outer_table) { is_outer_table_ = is_outer_table; }
   bool is_view() const { return view_; }
 
+public:
+  RC load_text(TextData *data) const;
+  RC dump_text(TextData *data) const;
+
+  RC load_vector(VectorData *data) const;
+  RC dump_vector(VectorData *data) const;
+  RC update_vector(const VectorData *old_vector_data, const VectorData *new_vector_data) const;
+
+private:
 protected:
   void set_table_meta(const TableMeta &table_meta) { table_meta_ = table_meta; }
   void set_view(bool view) { view_ = view; }
@@ -144,6 +163,9 @@ protected:
   DiskBufferPool    *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
   RecordFileHandler *record_handler_   = nullptr;  /// 记录操作
   vector<Index *>    indexes_;
+  std::vector<VectorIndex *> vector_indexes_;
+
+  std::unique_ptr<VectorDataManager> vector_data_manager_;
 
   bool is_outer_table_ = false; // 子查询用。判断是否是外层查询的表
 

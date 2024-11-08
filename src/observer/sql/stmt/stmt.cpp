@@ -13,6 +13,8 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/stmt/stmt.h"
+
+#include "create_vector_index_stmt.h"
 #include "common/log/log.h"
 #include "sql/stmt/calc_stmt.h"
 #include "sql/stmt/create_index_stmt.h"
@@ -126,6 +128,9 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
     }
     case SCF_UPDATE: {
       return UpdateStmt::create(db, sql_node.update, stmt);
+    }
+    case SCF_CREATE_VECTOR_INDEX: {
+      return CreateVectorIndexStmt::create(db, sql_node.create_vector_index, stmt);
     }
 
     default: {

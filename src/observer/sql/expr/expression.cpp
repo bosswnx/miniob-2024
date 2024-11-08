@@ -1041,6 +1041,8 @@ VectorDistanceExpr::VectorDistanceExpr(
 
 ExprType VectorDistanceExpr::type() const { return ExprType::VECTOR_DISTANCE_EXPR; }
 
+VectorDistanceExpr::Type VectorDistanceExpr::distance_type() const { return type_; }
+
 AttrType VectorDistanceExpr::value_type() const { return AttrType::FLOATS; }
 
 int VectorDistanceExpr::value_length() const { return sizeof(float); }

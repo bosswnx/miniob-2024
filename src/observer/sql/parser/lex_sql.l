@@ -152,6 +152,7 @@ COSINE_DISTANCE                         RETURN_TOKEN(COSINE_DISTANCE);
 INNER_PRODUCT                           RETURN_TOKEN(INNER_PRODUCT);
 IS                                      RETURN_TOKEN(IS);
 LIMIT                                   RETURN_TOKEN(LIMIT);
+WITH                                    RETURN_TOKEN(WITH);
 
 COUNT                                   RETURN_TOKEN(COUNT);
 MAX                                     RETURN_TOKEN(MAX);

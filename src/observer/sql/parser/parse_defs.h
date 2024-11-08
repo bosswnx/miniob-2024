@@ -235,6 +235,14 @@ struct CreateIndexSqlNode
   bool                     is_unique;        ///< 是否是唯一索引
 };
 
+struct CreateVectorIndexSqlNode
+{
+  std::string                         index_name;
+  std::string                         relation_name;
+  std::string                         attribute_names;
+  std::pair<std::string, std::string> params[4];
+};
+
 /**
  * @brief 描述一个drop index语句
  * @ingroup SQLParser
@@ -327,6 +335,7 @@ enum SqlCommandFlag
   SCF_DROP_TABLE,
   SCF_CREATE_VIEW,
   SCF_CREATE_INDEX,
+  SCF_CREATE_VECTOR_INDEX,
   SCF_DROP_INDEX,
   SCF_SYNC,
   SCF_SHOW_TABLES,
@@ -358,6 +367,7 @@ public:
   CreateTableSqlNode  create_table;
   DropTableSqlNode    drop_table;
   CreateIndexSqlNode  create_index;
+  CreateVectorIndexSqlNode create_vector_index;
   DropIndexSqlNode    drop_index;
   CreateViewSqlNode   create_view;
   DescTableSqlNode    desc_table;

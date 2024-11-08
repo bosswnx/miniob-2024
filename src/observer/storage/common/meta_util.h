@@ -20,10 +20,14 @@ static constexpr const char *TABLE_META_SUFFIX       = ".table";
 static constexpr const char *TABLE_META_FILE_PATTERN = ".*\\.table$";
 static constexpr const char *TABLE_DATA_SUFFIX       = ".data";
 static constexpr const char *TABLE_INDEX_SUFFIX      = ".index";
-static constexpr const char *TABLE_TEXT_DATA_SUFFIX  = ".text-vector.data";
+static constexpr const char *TABLE_TEXT_DATA_SUFFIX   = ".textdata";
+static constexpr const char *TABLE_VECTOR_DATA_SUFFIX = ".vectordata";
+static constexpr const char *TABLE_VECTOR_INDEX_SUFFIX = ".vectorindex";
 
 string db_meta_file(const char *base_dir, const char *db_name);
 string table_meta_file(const char *base_dir, const char *table_name);
 string table_data_file(const char *base_dir, const char *table_name);
 string table_index_file(const char *base_dir, const char *table_name, const char *index_name);
-string table_text_vector_data_file(const char *base_dir, const char *table_name);
+string table_vector_index_file(const char *base_dir, const char *table_name, const char *vector_index_name);
+string table_text_data_file(const char *base_dir, const char *table_name);
+string table_vector_data_file(const char *base_dir, const char *table_name);

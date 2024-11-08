@@ -138,6 +138,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         SUM
         TEXT_T
         LIMIT
+        WITH
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -212,6 +213,8 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %type <sql_node>            desc_table_stmt
 %type <sql_node>            create_view_stmt
 %type <sql_node>            create_index_stmt
+%type <sql_node>            create_vector_index_stmt
+%type <string>              id_or_number
 %type <sql_node>            drop_index_stmt
 %type <sql_node>            sync_stmt
 %type <sql_node>            begin_stmt
@@ -252,6 +255,7 @@ command_wrapper:
   | desc_table_stmt
   | create_view_stmt
   | create_index_stmt
+  | create_vector_index_stmt
   | drop_index_stmt
   | sync_stmt
   | begin_stmt
@@ -352,6 +356,67 @@ create_index_stmt:    /*create index 语句的语法解析树*/
         std::reverse($$->create_index.attribute_names.begin(), $$->create_index.attribute_names.end());
         delete $8;
       }
+    }
+    ;
+id_or_number:
+    ID
+    {
+        $$ = new char[strlen($1) + 1];
+        strcpy($$, $1);
+        $$[strlen($1)] = '\0';
+    }
+    | NUMBER
+    {
+        $$ = new char[20];
+        sprintf($$, "%d", $1);
+    }
+    | L2_DISTANCE
+    {
+        const char* s = "l2_distance";
+        $$ = new char[strlen(s) + 1];
+        strcpy($$, s);
+        $$[strlen(s)] = '\0';
+    }
+    | INNER_PRODUCT
+    {
+        const char* s = "inner_product";
+        $$ = new char[strlen(s) + 1];
+        strcpy($$, s);
+        $$[strlen(s)] = '\0';
+    }
+    | COSINE_DISTANCE
+    {
+        const char* s = "cossine_distance";
+        $$ = new char[strlen(s) + 1];
+        strcpy($$, s);
+        $$[strlen(s)] = '\0';
+    }
+    ;
+
+create_vector_index_stmt:
+    // 1     2       3     4  5  6   7    8    9    10     11    12 13      14       15    16 17     18        19   20 21    22         23   24 25     26        27
+    CREATE VECTOR_T INDEX ID ON ID LBRACE ID RBRACE WITH  LBRACE ID EQ id_or_number COMMA  ID EQ id_or_number COMMA ID EQ id_or_number COMMA ID EQ id_or_number RBRACE
+    {
+        $$ = new ParsedSqlNode(SCF_CREATE_VECTOR_INDEX);
+        CreateVectorIndexSqlNode &create_vector_index = $$->create_vector_index;
+        create_vector_index.index_name = $4;
+        create_vector_index.relation_name = $6;
+        create_vector_index.attribute_names = $8;
+        create_vector_index.params[0] = {$12, $14};
+        create_vector_index.params[1] = {$16, $18};
+        create_vector_index.params[2] = {$20, $22};
+        create_vector_index.params[3] = {$24, $26};
+        free($4);
+        free($6);
+        free($8);
+        free($12);
+        delete[] $14;
+        free($16);
+        delete[] $18;
+        free($20);
+        delete[] $22;
+        free($24);
+        delete[] $26;
     }
     ;
 
@@ -1209,6 +1274,14 @@ set_variable_stmt:
       $$->set_variable.value = *$4;
       free($2);
       delete $4;
+    }
+    | SET ID ID
+    {
+        $$ = new ParsedSqlNode(SCF_SET_VARIABLE);
+        $$->set_variable.name  = $2;
+        $$->set_variable.value = Value($3, strlen($3));
+        free($2);
+        free($3);
     }
     ;
 
