@@ -11,7 +11,7 @@
 class VectorIndexScanPhysicalOperator : public PhysicalOperator
 {
 public:
-  VectorIndexScanPhysicalOperator(Table *table, VectorIndex *vector_index, const Value &query_value);
+  VectorIndexScanPhysicalOperator(Table *table, VectorIndex *vector_index, const Value &query_value, int limit);
 
   virtual ~VectorIndexScanPhysicalOperator() = default;
 
@@ -35,4 +35,5 @@ private:
   std::vector<float>         query_vector_;
   std::vector<RID>           result;
   std::vector<RID>::iterator result_iterator_;
+  int                        limit_;
 };

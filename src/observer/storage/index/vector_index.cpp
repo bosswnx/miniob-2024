@@ -72,7 +72,7 @@ void VectorIndex::add_item(RID rid, const float *vector)
   aux_file_.write(reinterpret_cast<char *>(&rid), sizeof(RID));
 }
 
-void VectorIndex::build_and_save()
+RC VectorIndex::build_and_save()
 {
   aux_file_.close();
   switch (distance_type_) {
@@ -96,28 +96,6 @@ void VectorIndex::build_and_save()
     }
     default: ASSERT(false, "not implemented");
   }
-}
-
-RC VectorIndex::load()
-{
-  switch (distance_type_) {
-    case DistanceType::L2_DISTANCE: {
-      const auto index = static_cast<MiniObAnnoyIndex<Annoy::Euclidean> *>(index_);
-      index->load(filename_.c_str());
-      break;
-    }
-    case DistanceType::COSINE_DISTANCE: {
-      const auto index = static_cast<MiniObAnnoyIndex<Annoy::Angular> *>(index_);
-      index->load(filename_.c_str());
-      break;
-    }
-    case DistanceType::INNER_PRODUCT: {
-      const auto index = static_cast<MiniObAnnoyIndex<Annoy::DotProduct> *>(index_);
-      index->load(filename_.c_str());
-      break;
-    }
-    default: ASSERT(false, "not implemented");
-  }
   std::string aux_file = filename_ + ".aux";
   int         fd       = open(aux_file.c_str(), O_RDONLY);
   if (fd < 0) {
@@ -132,6 +110,28 @@ RC VectorIndex::load()
   rid_map_start = static_cast<RID *>(map_start);
   return RC::SUCCESS;
 }
+
+// RC VectorIndex::load()
+// {
+//   switch (distance_type_) {
+//     case DistanceType::L2_DISTANCE: {
+//       const auto index = static_cast<MiniObAnnoyIndex<Annoy::Euclidean> *>(index_);
+//       index->load(filename_.c_str());
+//       break;
+//     }
+//     case DistanceType::COSINE_DISTANCE: {
+//       const auto index = static_cast<MiniObAnnoyIndex<Annoy::Angular> *>(index_);
+//       index->load(filename_.c_str());
+//       break;
+//     }
+//     case DistanceType::INNER_PRODUCT: {
+//       const auto index = static_cast<MiniObAnnoyIndex<Annoy::DotProduct> *>(index_);
+//       index->load(filename_.c_str());
+//       break;
+//     }
+//     default: ASSERT(false, "not implemented");
+//   }
+// }
 
 void VectorIndex::query(const float *w, size_t n, std::vector<RID> &result, std::vector<float> &distance)
 {

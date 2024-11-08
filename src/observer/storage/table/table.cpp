@@ -763,7 +763,11 @@ RC Table::create_vector_index(Trx *trx, const FieldMeta *field_meta, const std::
     return rc;
   }
   scanner.close_scan();
-  vector_index->build_and_save();
+  rc = vector_index->build_and_save();
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to build and save vector index: %s", strrc(rc));
+    return rc;
+  }
   vector_indexes_.push_back(vector_index);
 
   /// 接下来将这个索引放到表的元数据中

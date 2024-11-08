@@ -1,8 +1,8 @@
 #include "vector_index_scan_physical_operator.h"
 
 VectorIndexScanPhysicalOperator::VectorIndexScanPhysicalOperator(
-    Table *table, VectorIndex *vector_index, const Value &query_value)
-    : table_(table), vector_index_(vector_index)
+    Table *table, VectorIndex *vector_index, const Value &query_value, int limit)
+    : table_(table), vector_index_(vector_index), limit_(limit)
 {
   ASSERT(query_value.attr_type() == AttrType::VECTORS, "non vector value not supported");
   const auto vector = query_value.get_vector();
@@ -15,12 +15,7 @@ VectorIndexScanPhysicalOperator::VectorIndexScanPhysicalOperator(
 RC VectorIndexScanPhysicalOperator::open(Trx *trx)
 {
   std::vector<float> distance;
-  RC                 rc = vector_index_->load();
-  if (OB_FAIL(rc)) {
-    LOG_WARN("failed to load vector index: %s", strrc(rc));
-    return rc;
-  }
-  vector_index_->query(query_vector_.data(), query_vector_.size(), result, distance);
+  vector_index_->query(query_vector_.data(), limit_, result, distance);
   result_iterator_ = result.begin();
   record_handler_  = table_->record_handler();
   if (nullptr == record_handler_) {

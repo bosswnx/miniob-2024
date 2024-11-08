@@ -11,8 +11,8 @@ public:
   ~VectorIndex();
 
   void add_item(RID rid, const float *vector);
-  void build_and_save();
-  RC   load();
+  RC build_and_save();
+  // RC   load();
   void query(const float *w, size_t n, std::vector<RID> &result, std::vector<float> &distance);
   [[nodiscard]] const VectorIndexMeta &meta() const;
 

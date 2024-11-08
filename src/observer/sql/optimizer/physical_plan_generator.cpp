@@ -363,7 +363,7 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
             VectorIndex *vector_index   = table->find_vector_index_by_fields(left_expr->field_name());
             // 检查查询的距离类型和向量索引的距离类型是否相同
             if (distance_type == vector_index->meta().distance_type()) {
-              child_phy_oper = std::make_unique<VectorIndexScanPhysicalOperator>(table, vector_index, right_value);
+              child_phy_oper = std::make_unique<VectorIndexScanPhysicalOperator>(table, vector_index, right_value, limit);
             }
           }
       }
