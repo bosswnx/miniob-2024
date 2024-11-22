@@ -4,7 +4,7 @@
 
 北京科技大学 我真的参加了系统内核赛
 
-队员：[王诺贤](https://bosswnx.xyz)、[廖玮珑](https://lwl.lol)、[陈渠](https://blog.virtualfuture.top/)。
+队员：[王诺贤](https://bosswnx.xyz)、[廖玮珑](https://soulter.top)、[陈渠](https://blog.virtualfuture.top/)。
 
 初赛满分通过，全国排名第 19，北京赛区排名第 2，校排名第 1：
 
@@ -13,7 +13,7 @@
 开发记录：
 
 - [OceanBase 2024 初赛 MiniOB 开发记录](https://zhuanlan.zhihu.com/p/5953505884)
-- [OceanBase 数据库内核实现赛 / 自己实现一个数据库](https://blog.lwl.lol/posts/2024-oceanbase-database.html)
+- [OceanBase 数据库内核实现赛 / 自己实现一个数据库](https://blog.soulter.top/posts/2024-oceanbase-database.html)
 - [OceanBase 数据库大赛初赛结束之后](https://blog.virtualfuture.top/posts/miniob/)
 
 ## 开发规范
